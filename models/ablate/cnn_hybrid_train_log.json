@@ -1,0 +1,67 @@
+{
+  "history": [
+    {
+      "step": 1000,
+      "rmse": 5.285805179721584,
+      "bias": -0.6576700849237276
+    },
+    {
+      "step": 2000,
+      "rmse": 5.5143619120134195,
+      "bias": -0.8965589019998431
+    },
+    {
+      "step": 3000,
+      "rmse": 5.68588041299589,
+      "bias": -1.0092509074126481
+    },
+    {
+      "step": 4000,
+      "rmse": 5.804644797290289,
+      "bias": -1.047664133148066
+    },
+    {
+      "step": 5000,
+      "rmse": 5.899581817317286,
+      "bias": -1.082240322563461
+    },
+    {
+      "step": 6000,
+      "rmse": 5.928391576045637,
+      "bias": -1.084139893432307
+    }
+  ],
+  "best": 5.285805179721584,
+  "args": {
+    "model": "cnn",
+    "data_dir": "data",
+    "out": "models/ablate",
+    "patch": 96,
+    "no_augment": false,
+    "wet_bias": 0.8,
+    "batch": 32,
+    "steps": 6000,
+    "lr": 0.0002,
+    "warmup": 500,
+    "eval_every": 1000,
+    "workers": 8,
+    "dev_days": 0,
+    "base": 64,
+    "dim": 180,
+    "groups": 4,
+    "depth": 6,
+    "heads": 6,
+    "timesteps": 1000,
+    "mean_ckpt": null,
+    "ema": 0.999,
+    "seed": 0,
+    "max_minutes": 0,
+    "amp": "bf16",
+    "loss": "hybrid",
+    "w_log": 0.5,
+    "tag": "hybrid"
+  },
+  "steps_done": 6000,
+  "minutes": 3.002589289347331,
+  "params": 11677377
+}

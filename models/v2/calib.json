@@ -1,0 +1,33 @@
+{
+  "observed": {
+    "residual_std": 0.7027682065963745,
+    "residual_mean": -0.03845791146159172,
+    "precip_mean_mm": 0.32099592685699463
+  },
+  "checkpoint": "models/v2/diffusion_best.pt",
+  "parameterization": "v",
+  "res_scale": 0.6120135188102722,
+  "days": 12,
+  "etas": {
+    "40_0.0": {
+      "steps": 40,
+      "eta": 0.0,
+      "residual_std": 0.6030212640762329,
+      "spread_ratio": 0.858065664768219,
+      "precip_mean_mm": 0.4783061146736145,
+      "bias_mm": 0.15731018781661987,
+      "score": 0.6431437711810953
+    },
+    "40_1.0": {
+      "steps": 40,
+      "eta": 1.0,
+      "residual_std": 0.5307026505470276,
+      "spread_ratio": 0.7551602721214294,
+      "precip_mean_mm": 0.44283053278923035,
+      "bias_mm": 0.12183460593223572,
+      "score": 0.6603771588181975
+    }
+  },
+  "best_steps": 40,
+  "best_eta": 0.0
+}

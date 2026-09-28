@@ -1,0 +1,7 @@
+name, memory.total [MiB]
+NVIDIA GH200 120GB, 97871 MiB
+torch 2.6.0+cu126 | device NVIDIA GH200 120GB
+cnn: 11.68M params | 10.6 it/s (bs32 96px) | full-domain fwd 0.04s | peak 3.8 GB | loss 0.2260
+swin: 7.94M params | 1.5 it/s (bs32 96px) | full-domain fwd 0.11s | peak 53.8 GB | loss 0.2431
+diffusion: 12.35M params | 18.2 it/s | peak 4.1 GB
+diffusion sampling: 1 member, 50 DDIM steps, full domain: 1.0s

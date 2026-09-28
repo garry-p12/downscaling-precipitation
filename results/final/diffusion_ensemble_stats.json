@@ -1,0 +1,6 @@
+{
+  "crps_mm": 1.1104827448572963,
+  "ensemble_spread_mm": 1.0804421521424343,
+  "members": 6,
+  "ddim_steps": 40
+}

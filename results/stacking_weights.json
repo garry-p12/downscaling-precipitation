@@ -1,0 +1,27 @@
+{
+  "members": [
+    "xgboost",
+    "cnn",
+    "swin",
+    "diffusion",
+    "bilinear"
+  ],
+  "weights": {
+    "xgboost": 0.7607379446694942,
+    "cnn": 0.022597387105482192,
+    "swin": 0.0,
+    "diffusion": 0.0,
+    "bilinear": 0.22653212662824115
+  },
+  "weight_sum": 1.0098674584032175,
+  "n_samples": 399675,
+  "dev_rmse_blend": 4.985719606301563,
+  "dev_rmse_members": {
+    "xgboost": 5.005669593811035,
+    "cnn": 5.111440181732178,
+    "swin": 5.127509593963623,
+    "diffusion": 5.441995620727539,
+    "bilinear": 5.174989700317383
+  },
+  "dev_rmse_equal_weight": 5.0529937744140625
+}

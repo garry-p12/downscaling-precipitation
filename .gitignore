@@ -1,0 +1,32 @@
+# data & model artefacts (large / regenerable)
+data/raw/
+data/processed/
+data/auxiliary/
+data/*.log
+models/*.pkl
+results/*.nc
+results/**/*.png
+results/**/*.csv
+results/*.png
+
+# ...but the curated, labelled figure set IS part of the repo
+!results/figures/
+!results/figures/**
+!results/figures/*.png
+!results/figures/README.md
+!results/comparison/*.json
+!results/comparison/*.md
+!results/*.json
+!results/*.md
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# env / editor
+.env
+.DS_Store
+.vscode/

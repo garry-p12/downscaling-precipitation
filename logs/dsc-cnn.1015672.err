@@ -1,0 +1,11 @@
+
+Lmod is automatically replacing "nvidia/24.7" with "gcc/13.2.0".
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) openmpi/5.0.5
+
+The following have been reloaded with a version change:
+  1) nvpl/24.7 => nvpl/26.1
+
+slurmstepd: error: *** JOB 1015672 ON c642-092 CANCELLED AT 2026-09-22T12:38:34 ***

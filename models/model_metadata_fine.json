@@ -1,0 +1,156 @@
+{
+  "stage": "fine_1km_residual",
+  "recommended_method": "bilinear",
+  "model_type": "xgb",
+  "hyperparams": {
+    "n_estimators": 2000,
+    "max_depth": 4,
+    "learning_rate": 0.02,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 20
+  },
+  "best_iteration": -1,
+  "n_train_rows": 3000462,
+  "n_val_rows": 499932,
+  "feature_names": [
+    "pred_bl",
+    "imerg_bl",
+    "imerg_roll7_bl",
+    "imerg_pct_bl",
+    "doy_sin",
+    "doy_cos",
+    "dem",
+    "slope",
+    "aspect_sin",
+    "aspect_cos",
+    "imperv",
+    "lc_frac_water",
+    "lc_frac_developed",
+    "lc_frac_barren",
+    "lc_frac_forest",
+    "lc_frac_shrub",
+    "lc_frac_grass",
+    "lc_frac_crop",
+    "lc_frac_wetland",
+    "dem_x_slope",
+    "dem_anom",
+    "dem_x_forest",
+    "dem_x_developed"
+  ],
+  "feature_importance": [
+    {
+      "feature": "doy_sin",
+      "importance": 0.06951086535922758
+    },
+    {
+      "feature": "dem",
+      "importance": 0.06415761659058962
+    },
+    {
+      "feature": "doy_cos",
+      "importance": 0.061958335866873465
+    },
+    {
+      "feature": "lc_frac_crop",
+      "importance": 0.06140206723408015
+    },
+    {
+      "feature": "imerg_roll7_bl",
+      "importance": 0.060264664400563245
+    },
+    {
+      "feature": "dem_x_slope",
+      "importance": 0.05856945641655145
+    },
+    {
+      "feature": "lc_frac_shrub",
+      "importance": 0.055118497431815267
+    },
+    {
+      "feature": "lc_frac_barren",
+      "importance": 0.04974420856723629
+    },
+    {
+      "feature": "lc_frac_grass",
+      "importance": 0.04431893333380026
+    },
+    {
+      "feature": "pred_bl",
+      "importance": 0.04403819361782268
+    },
+    {
+      "feature": "slope",
+      "importance": 0.04312673623973111
+    },
+    {
+      "feature": "dem_x_developed",
+      "importance": 0.04070742407151422
+    },
+    {
+      "feature": "lc_frac_developed",
+      "importance": 0.0406820873517029
+    },
+    {
+      "feature": "imerg_pct_bl",
+      "importance": 0.03648908173463545
+    },
+    {
+      "feature": "imperv",
+      "importance": 0.03451428026981933
+    },
+    {
+      "feature": "imerg_bl",
+      "importance": 0.03417470634171258
+    },
+    {
+      "feature": "dem_anom",
+      "importance": 0.032759538377974455
+    },
+    {
+      "feature": "lc_frac_forest",
+      "importance": 0.03217620664049232
+    },
+    {
+      "feature": "dem_x_forest",
+      "importance": 0.029949831167558012
+    },
+    {
+      "feature": "lc_frac_water",
+      "importance": 0.028973527116765898
+    },
+    {
+      "feature": "lc_frac_wetland",
+      "importance": 0.028058574776213537
+    },
+    {
+      "feature": "aspect_sin",
+      "importance": 0.025650932407199224
+    },
+    {
+      "feature": "aspect_cos",
+      "importance": 0.023654234686120965
+    }
+  ],
+  "top10_features": [
+    "doy_sin",
+    "dem",
+    "doy_cos",
+    "lc_frac_crop",
+    "imerg_roll7_bl",
+    "dem_x_slope",
+    "lc_frac_shrub",
+    "lc_frac_barren",
+    "lc_frac_grass",
+    "pred_bl"
+  ],
+  "metrics": {
+    "holdout_rmse_residual_model": 5.562165260314941,
+    "holdout_rmse_bilinear_stage1": 5.5599236488342285,
+    "val_rmse_residual_model": 4.9088921546936035,
+    "val_rmse_bilinear_stage1": 4.777317523956299,
+    "val_corr_residual_model": 0.8134562675990429,
+    "val_corr_bilinear_stage1": 0.824879433186482
+  },
+  "trained_at": "2026-09-26T17:59:30.048581+00:00"
+}

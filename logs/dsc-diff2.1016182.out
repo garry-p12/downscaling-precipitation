@@ -1,0 +1,203 @@
+=== diffusion rerun (x0) Tue Sep 22 05:09:16 PM CDT 2026
+[data] coarse (35, 30) fine (420, 360) | train 1096 dev 365 test 731 days | cond channels 19 | loaded in 5.6s
+[data] dev evaluation on 365 days
+[diffusion] residual scale 0.5208 from 2.4 M cells | parameterization x0
+[model] diffusion: 12.35 M parameters on cuda
+[loss] hybrid (mm scale 11.38)
+[   200/30000] loss 0.1460 lr 7.96e-05 24.8 it/s
+[   400/30000] loss 0.2072 lr 1.60e-04 26.0 it/s
+[   600/30000] loss 0.0905 lr 2.00e-04 26.3 it/s
+[   800/30000] loss 0.1327 lr 2.00e-04 26.2 it/s
+[  1000/30000] loss 0.0226 lr 2.00e-04 26.2 it/s
+[  1200/30000] loss 0.0156 lr 2.00e-04 26.2 it/s
+[  1400/30000] loss 0.0348 lr 2.00e-04 26.2 it/s
+[  1600/30000] loss 0.0206 lr 1.99e-04 26.2 it/s
+[  1800/30000] loss 0.0503 lr 1.99e-04 26.1 it/s
+[  2000/30000] loss 0.1355 lr 1.99e-04 26.1 it/s
+[dev 2000] loss=0.0729
+        saved diffusion_best.pt (score 0.0729)
+[  2200/30000] loss 0.0231 lr 1.98e-04 24.7 it/s
+[  2400/30000] loss 0.0368 lr 1.98e-04 24.8 it/s
+[  2600/30000] loss 0.2899 lr 1.98e-04 24.9 it/s
+[  2800/30000] loss 0.0363 lr 1.97e-04 24.9 it/s
+[  3000/30000] loss 0.0228 lr 1.96e-04 25.0 it/s
+[  3200/30000] loss 0.0456 lr 1.96e-04 25.0 it/s
+[  3400/30000] loss 0.0428 lr 1.95e-04 25.1 it/s
+[  3600/30000] loss 0.0856 lr 1.95e-04 25.1 it/s
+[  3800/30000] loss 0.0572 lr 1.94e-04 25.2 it/s
+[  4000/30000] loss 0.1469 lr 1.93e-04 25.1 it/s
+[dev 4000] loss=0.0311
+        saved diffusion_best.pt (score 0.0311)
+[  4200/30000] loss 0.0283 lr 1.92e-04 24.5 it/s
+[  4400/30000] loss 0.0383 lr 1.92e-04 24.5 it/s
+[  4600/30000] loss 0.0424 lr 1.91e-04 24.6 it/s
+[  4800/30000] loss 0.1269 lr 1.90e-04 24.6 it/s
+[  5000/30000] loss 0.0240 lr 1.89e-04 24.6 it/s
+[  5200/30000] loss 0.0271 lr 1.88e-04 24.6 it/s
+[  5400/30000] loss 0.1760 lr 1.87e-04 24.6 it/s
+[  5600/30000] loss 0.0420 lr 1.86e-04 24.6 it/s
+[  5800/30000] loss 0.0260 lr 1.84e-04 24.7 it/s
+[  6000/30000] loss 0.0961 lr 1.83e-04 24.7 it/s
+[dev 6000] loss=0.0277
+        saved diffusion_best.pt (score 0.0277)
+[  6200/30000] loss 0.0400 lr 1.82e-04 24.2 it/s
+[  6400/30000] loss 0.0303 lr 1.81e-04 24.3 it/s
+[  6600/30000] loss 0.0335 lr 1.80e-04 24.3 it/s
+[  6800/30000] loss 0.0208 lr 1.78e-04 24.3 it/s
+[  7000/30000] loss 0.0106 lr 1.77e-04 24.3 it/s
+[  7200/30000] loss 0.0215 lr 1.76e-04 24.4 it/s
+[  7400/30000] loss 0.0464 lr 1.74e-04 24.4 it/s
+[  7600/30000] loss 0.0541 lr 1.73e-04 24.4 it/s
+[  7800/30000] loss 0.0380 lr 1.71e-04 24.4 it/s
+[  8000/30000] loss 0.0296 lr 1.70e-04 24.5 it/s
+[dev 8000] loss=0.0265
+        saved diffusion_best.pt (score 0.0265)
+[  8200/30000] loss 0.0243 lr 1.68e-04 24.1 it/s
+[  8400/30000] loss 0.1968 lr 1.67e-04 24.2 it/s
+[  8600/30000] loss 0.0353 lr 1.65e-04 24.2 it/s
+[  8800/30000] loss 0.0152 lr 1.63e-04 24.2 it/s
+[  9000/30000] loss 0.0789 lr 1.62e-04 24.2 it/s
+[  9200/30000] loss 0.0224 lr 1.60e-04 24.2 it/s
+[  9400/30000] loss 0.1582 lr 1.58e-04 24.3 it/s
+[  9600/30000] loss 0.0601 lr 1.57e-04 24.3 it/s
+[  9800/30000] loss 0.0420 lr 1.55e-04 24.3 it/s
+[ 10000/30000] loss 0.0231 lr 1.53e-04 24.3 it/s
+[dev 10000] loss=0.0259
+        saved diffusion_best.pt (score 0.0259)
+[ 10200/30000] loss 0.0155 lr 1.51e-04 24.1 it/s
+[ 10400/30000] loss 0.0282 lr 1.49e-04 24.1 it/s
+[ 10600/30000] loss 0.0190 lr 1.48e-04 24.1 it/s
+[ 10800/30000] loss 0.0116 lr 1.46e-04 24.1 it/s
+[ 11000/30000] loss 0.0884 lr 1.44e-04 24.1 it/s
+[ 11200/30000] loss 0.0174 lr 1.42e-04 24.2 it/s
+[ 11400/30000] loss 0.0114 lr 1.40e-04 24.2 it/s
+[ 11600/30000] loss 0.0371 lr 1.38e-04 24.2 it/s
+[ 11800/30000] loss 0.0185 lr 1.36e-04 24.2 it/s
+[ 12000/30000] loss 0.0390 lr 1.34e-04 24.2 it/s
+[dev 12000] loss=0.0253
+        saved diffusion_best.pt (score 0.0253)
+[ 12200/30000] loss 0.0778 lr 1.32e-04 24.0 it/s
+[ 12400/30000] loss 0.0596 lr 1.30e-04 24.0 it/s
+[ 12600/30000] loss 0.0307 lr 1.28e-04 24.1 it/s
+[ 12800/30000] loss 0.0211 lr 1.26e-04 24.1 it/s
+[ 13000/30000] loss 0.0257 lr 1.24e-04 24.1 it/s
+[ 13200/30000] loss 0.1510 lr 1.22e-04 24.1 it/s
+[ 13400/30000] loss 0.0514 lr 1.20e-04 24.1 it/s
+[ 13600/30000] loss 0.0465 lr 1.17e-04 24.2 it/s
+[ 13800/30000] loss 0.0599 lr 1.15e-04 24.2 it/s
+[ 14000/30000] loss 0.0526 lr 1.13e-04 24.2 it/s
+[dev 14000] loss=0.0248
+        saved diffusion_best.pt (score 0.0248)
+[ 14200/30000] loss 0.0287 lr 1.11e-04 24.0 it/s
+[ 14400/30000] loss 0.0153 lr 1.09e-04 24.0 it/s
+[ 14600/30000] loss 0.0141 lr 1.07e-04 24.1 it/s
+[ 14800/30000] loss 0.0823 lr 1.05e-04 24.1 it/s
+[ 15000/30000] loss 0.0068 lr 1.03e-04 24.1 it/s
+[ 15200/30000] loss 0.0202 lr 1.01e-04 24.1 it/s
+[ 15400/30000] loss 0.0178 lr 9.84e-05 24.1 it/s
+[ 15600/30000] loss 0.0163 lr 9.63e-05 24.1 it/s
+[ 15800/30000] loss 0.0190 lr 9.42e-05 24.2 it/s
+[ 16000/30000] loss 0.0642 lr 9.20e-05 24.2 it/s
+[dev 16000] loss=0.0245
+        saved diffusion_best.pt (score 0.0245)
+[ 16200/30000] loss 0.1202 lr 8.99e-05 24.0 it/s
+[ 16400/30000] loss 0.0546 lr 8.78e-05 24.0 it/s
+[ 16600/30000] loss 0.0136 lr 8.57e-05 24.1 it/s
+[ 16800/30000] loss 0.0695 lr 8.36e-05 24.1 it/s
+[ 17000/30000] loss 0.0144 lr 8.15e-05 24.1 it/s
+[ 17200/30000] loss 0.0858 lr 7.94e-05 24.1 it/s
+[ 17400/30000] loss 0.0417 lr 7.73e-05 24.1 it/s
+[ 17600/30000] loss 0.0592 lr 7.52e-05 24.1 it/s
+[ 17800/30000] loss 0.0644 lr 7.32e-05 24.1 it/s
+[ 18000/30000] loss 0.0059 lr 7.11e-05 24.2 it/s
+[dev 18000] loss=0.0242
+        saved diffusion_best.pt (score 0.0242)
+[ 18200/30000] loss 0.0407 lr 6.91e-05 24.0 it/s
+[ 18400/30000] loss 0.0179 lr 6.71e-05 24.0 it/s
+[ 18600/30000] loss 0.1009 lr 6.51e-05 24.0 it/s
+[ 18800/30000] loss 0.0201 lr 6.31e-05 24.1 it/s
+[ 19000/30000] loss 0.0222 lr 6.11e-05 24.1 it/s
+[ 19200/30000] loss 0.0157 lr 5.92e-05 24.1 it/s
+[ 19400/30000] loss 0.0145 lr 5.72e-05 24.1 it/s
+[ 19600/30000] loss 0.0448 lr 5.53e-05 24.1 it/s
+[ 19800/30000] loss 0.0622 lr 5.34e-05 24.1 it/s
+[ 20000/30000] loss 0.0420 lr 5.16e-05 24.1 it/s
+[dev 20000] loss=0.0241
+        saved diffusion_best.pt (score 0.0241)
+[ 20200/30000] loss 0.0359 lr 4.97e-05 24.0 it/s
+[ 20400/30000] loss 0.0416 lr 4.79e-05 24.0 it/s
+[ 20600/30000] loss 0.0143 lr 4.61e-05 24.0 it/s
+[ 20800/30000] loss 0.0088 lr 4.43e-05 24.0 it/s
+[ 21000/30000] loss 0.0300 lr 4.25e-05 24.0 it/s
+[ 21200/30000] loss 0.0314 lr 4.08e-05 24.1 it/s
+[ 21400/30000] loss 0.0289 lr 3.91e-05 24.1 it/s
+[ 21600/30000] loss 0.0091 lr 3.74e-05 24.1 it/s
+[ 21800/30000] loss 0.0965 lr 3.58e-05 24.1 it/s
+[ 22000/30000] loss 0.0460 lr 3.42e-05 24.1 it/s
+[dev 22000] loss=0.0238
+        saved diffusion_best.pt (score 0.0238)
+[ 22200/30000] loss 0.0550 lr 3.26e-05 24.0 it/s
+[ 22400/30000] loss 0.0364 lr 3.10e-05 24.0 it/s
+[ 22600/30000] loss 0.0406 lr 2.95e-05 24.0 it/s
+[ 22800/30000] loss 0.0599 lr 2.80e-05 24.0 it/s
+[ 23000/30000] loss 0.0181 lr 2.65e-05 24.0 it/s
+[ 23200/30000] loss 0.0399 lr 2.51e-05 24.0 it/s
+[ 23400/30000] loss 0.0185 lr 2.37e-05 24.0 it/s
+[ 23600/30000] loss 0.1707 lr 2.23e-05 24.0 it/s
+[ 23800/30000] loss 0.0284 lr 2.10e-05 24.0 it/s
+[ 24000/30000] loss 0.0596 lr 1.97e-05 24.1 it/s
+[dev 24000] loss=0.0235
+        saved diffusion_best.pt (score 0.0235)
+[ 24200/30000] loss 0.0198 lr 1.85e-05 24.0 it/s
+[ 24400/30000] loss 0.0745 lr 1.73e-05 24.0 it/s
+[ 24600/30000] loss 0.0263 lr 1.61e-05 24.0 it/s
+[ 24800/30000] loss 0.0373 lr 1.50e-05 24.0 it/s
+[ 25000/30000] loss 0.0235 lr 1.38e-05 24.0 it/s
+[ 25200/30000] loss 0.0271 lr 1.28e-05 24.0 it/s
+[ 25400/30000] loss 0.0122 lr 1.18e-05 24.0 it/s
+[ 25600/30000] loss 0.0101 lr 1.08e-05 24.0 it/s
+[ 25800/30000] loss 0.0654 lr 9.84e-06 24.0 it/s
+[ 26000/30000] loss 0.0356 lr 8.94e-06 24.0 it/s
+[dev 26000] loss=0.0236
+[ 26200/30000] loss 0.0130 lr 8.08e-06 23.9 it/s
+[ 26400/30000] loss 0.0296 lr 7.26e-06 24.0 it/s
+[ 26600/30000] loss 0.0189 lr 6.49e-06 24.0 it/s
+[ 26800/30000] loss 0.0122 lr 5.75e-06 24.0 it/s
+[ 27000/30000] loss 0.0665 lr 5.06e-06 24.0 it/s
+[ 27200/30000] loss 0.0501 lr 4.42e-06 24.0 it/s
+[ 27400/30000] loss 0.0618 lr 3.81e-06 24.0 it/s
+[ 27600/30000] loss 0.0107 lr 3.25e-06 24.0 it/s
+[ 27800/30000] loss 0.0547 lr 2.73e-06 24.0 it/s
+[ 28000/30000] loss 0.0491 lr 2.26e-06 24.0 it/s
+[dev 28000] loss=0.0234
+        saved diffusion_best.pt (score 0.0234)
+[ 28200/30000] loss 0.0263 lr 1.83e-06 23.9 it/s
+[ 28400/30000] loss 0.0110 lr 1.45e-06 23.9 it/s
+[ 28600/30000] loss 0.0298 lr 1.11e-06 24.0 it/s
+[ 28800/30000] loss 0.0362 lr 8.17e-07 24.0 it/s
+[ 29000/30000] loss 0.0216 lr 5.68e-07 24.0 it/s
+[ 29200/30000] loss 0.0215 lr 3.64e-07 24.0 it/s
+[ 29400/30000] loss 0.0144 lr 2.05e-07 24.0 it/s
+[ 29600/30000] loss 0.0133 lr 9.12e-08 24.0 it/s
+[ 29800/30000] loss 0.0130 lr 2.29e-08 24.0 it/s
+[ 30000/30000] loss 0.0826 lr 5.67e-13 24.0 it/s
+[dev 30000] loss=0.0234
+[done] best dev score 0.0234 in 20.9 min
+----- calibrating sampler on the dev year
+observed: residual std 1.038 mean -0.005 | precip mean 5.634 mm
+eta=0.0 : residual std 0.582 (ratio  0.56)  precip mean  3.683 mm (bias -1.951)  score 0.926
+eta=0.5 : residual std 0.577 (ratio  0.56)  precip mean  3.693 mm (bias -1.941)  score 0.931
+eta=1.0 : residual std 0.529 (ratio  0.51)  precip mean  3.627 mm (bias -2.007)  score 1.030
+
+best eta on the dev year: 0.0
+----- chosen eta: 0.0
+  100/731 days
+  200/731 days
+  300/731 days
+  400/731 days
+  500/731 days
+  600/731 days
+  700/731 days
+[written] results/deep/diffusion_1km_2019_2020.nc
+[ensemble] {'crps_mm': 1.1561906396989114, 'ensemble_spread_mm': 0.557088505409764, 'members': 6, 'ddim_steps': 40}
+=== done Tue Sep 22 05:57:17 PM CDT 2026

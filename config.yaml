@@ -1,0 +1,112 @@
+# IMERG 10 km -> 1 km downscaling configuration.
+# Paths are relative to the directory containing this file unless absolute.
+
+project_root: .
+
+domain:
+  name: austin_tx
+  # [lon_min, lat_min, lon_max, lat_max] in degrees. Edges must be multiples of
+  # coarse_res_deg so that IMERG 0.1 deg cells tile the domain exactly.
+  bbox: [-99.0, 28.5, -96.0, 32.0]
+  coarse_res_deg: 0.1        # IMERG native resolution
+  fine_factor: 12            # 0.1 deg / 12 = 1/120 deg (~925 m), the AORC grid
+
+time:
+  # IMERG Final V07 daily begins 2000-06-01; AORC and ERA5 both start earlier, so
+  # the satellite record is the binding constraint. Extending the training period
+  # from 4 to 18.5 years is the direct attack on the ~1100-independent-days limit
+  # that every architecture ran into.
+  start: "2000-06-01"
+  end: "2020-12-31"
+  train_start: "2000-06-01"
+  train_end: "2017-12-31"
+  # 2018 is held out as a dev year for EVERY model family, not just the deep
+  # ones: the stacking weights are fitted there, so a member trained through
+  # 2018 would look artificially good and take all the weight.
+  val_start: "2019-01-01"
+  val_end: "2020-12-31"
+
+data:
+  imerg:
+    short_name: GPM_3IMERGDF   # daily Final Run; use GPM_3IMERGHH for half-hourly
+    version: "07"
+    variable: auto             # auto -> 'precipitation' (V07) or 'precipitationCal' (V06)
+    mode: opendap              # opendap (server-side subset, KB/day) | granule (full 28 MB files)
+    workers: 4                 # parallel OPeNDAP requests
+    keep_raw: false            # delete each raw granule/subset after it has been parsed
+  aorc:
+    bucket: noaa-nws-aorc-v1-1-1km
+    variable: APCP_surface     # hourly total precipitation, kg m-2 == mm
+  nlcd:
+    year: 2021
+    wcs_url: https://www.mrlc.gov/geoserver/ows
+    landcover_coverage: mrlc_download__NLCD_2021_Land_Cover_L48
+    impervious_coverage: mrlc_download__NLCD_2021_Impervious_L48
+    tile_km: 60                # WCS request tile size (server limits large requests)
+    dem_source: copernicus_glo90
+    dem_resampling: average    # 90 m -> 1 km; 'average' avoids aliasing, 'bilinear' also supported
+
+features:
+  rolling_days: 7
+  neighborhood: 3
+  include_doy: true            # day-of-year sin/cos seasonality terms
+  include_latlon: false
+  use_era5: true               # ERA5 environmental predictors at 10 km (src/atmos.py)
+
+model:
+  coarse:                      # stage 1: 10 km bias-correction model
+    type: xgb                  # xgb | rf
+    early_stopping_rounds: 40
+    params:                    # shallow/slow: best 2019-20 skill on the Austin domain (see README)
+      n_estimators: 2000
+      max_depth: 4
+      learning_rate: 0.02
+      subsample: 0.8
+      colsample_bytree: 0.8
+      min_child_weight: 5
+    rf_params:
+      n_estimators: 200
+      max_depth: 12
+      min_samples_split: 20
+  fine:                        # stage 2: 1 km residual model (method 'residual')
+    type: xgb
+    early_stopping_rounds: 40
+    max_samples: 3000000       # random (day, cell) samples drawn from the training period
+    val_samples: 500000
+    seed: 42
+    min_gain_over_bilinear: 0.005   # 'auto' picks residual only if hold-out RMSE improves by > 0.5 %
+    params:
+      n_estimators: 2000
+      max_depth: 4
+      learning_rate: 0.02
+      subsample: 0.8
+      colsample_bytree: 0.8
+      min_child_weight: 20
+
+upsampling:
+  method: auto                 # auto | bilinear | bilinear+lapse | residual
+                               # auto: residual model if it beats bilinear on the training-tail hold-out
+  lapse_alpha: -0.0002         # per metre; used by bilinear+lapse
+  conserve_mass: false         # rescale 1 km field so 10 km block means match stage-1 prediction
+  time_chunk: 32               # days processed per block
+
+validation:
+  heavy_threshold_mm: 30.0
+  intensity_bins_mm: [1.0, 10.0, 30.0]
+  complex_terrain_slope_deg: 5.0
+  qq_samples: 200000
+  sample_locations:
+    - {name: Austin, lat: 30.27, lon: -97.74}
+    - {name: San Antonio, lat: 29.42, lon: -98.49}
+    - {name: Waco, lat: 31.55, lon: -97.15}
+    - {name: San Marcos, lat: 29.88, lon: -97.94}
+    - {name: Fredericksburg, lat: 30.27, lon: -98.87}
+    - {name: Georgetown, lat: 30.63, lon: -97.68}
+    - {name: Bastrop, lat: 30.11, lon: -97.32}
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  auxiliary: data/auxiliary
+  models: models
+  results: results

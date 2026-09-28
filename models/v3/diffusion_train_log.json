@@ -1,0 +1,96 @@
+{
+  "history": [
+    {
+      "step": 5000,
+      "loss": 0.021536670463730492
+    },
+    {
+      "step": 10000,
+      "loss": 0.019932105384331437
+    },
+    {
+      "step": 15000,
+      "loss": 0.01949949178097379
+    },
+    {
+      "step": 20000,
+      "loss": 0.01921726407618412
+    },
+    {
+      "step": 25000,
+      "loss": 0.019035418509438094
+    },
+    {
+      "step": 30000,
+      "loss": 0.018923442806079684
+    },
+    {
+      "step": 35000,
+      "loss": 0.018835990136722103
+    },
+    {
+      "step": 40000,
+      "loss": 0.018787540696305973
+    },
+    {
+      "step": 45000,
+      "loss": 0.01874900181052996
+    },
+    {
+      "step": 50000,
+      "loss": 0.01873687706369486
+    },
+    {
+      "step": 55000,
+      "loss": 0.01875026637947397
+    },
+    {
+      "step": 60000,
+      "loss": 0.01876028166096207
+    }
+  ],
+  "best": 0.01873687706369486,
+  "args": {
+    "model": "diffusion",
+    "data_dir": "data",
+    "out": "models/v3",
+    "patch": 96,
+    "no_augment": false,
+    "wet_bias": 0.8,
+    "batch": 32,
+    "steps": 60000,
+    "lr": 0.0002,
+    "warmup": 500,
+    "eval_every": 5000,
+    "workers": 8,
+    "dev_days": 120,
+    "base": 64,
+    "dim": 180,
+    "groups": 4,
+    "depth": 6,
+    "heads": 6,
+    "timesteps": 1000,
+    "param": "v",
+    "min_snr_gamma": 5.0,
+    "mean_ckpt": "models/v3/cnn_best.pt",
+    "ema": 0.999,
+    "seed": 0,
+    "max_minutes": 90.0,
+    "amp": "bf16",
+    "loss": "mse",
+    "w_log": 0.5,
+    "tau": 0.9,
+    "w_quantile": 0.3,
+    "heavy_mm": 0.0,
+    "heavy_weight": 1.0,
+    "importance_weight": false,
+    "tag": "",
+    "select": "rmse_pod",
+    "pod_floor": 0.633
+  },
+  "steps_done": 60000,
+  "minutes": 40.19013739824295,
+  "params": 12360001,
+  "select": "rmse_pod",
+  "pod_floor": 0.633
+}

@@ -1,0 +1,66 @@
+{
+  "history": [
+    {
+      "step": 1000,
+      "rmse": 5.564106528641718,
+      "bias": -0.9051994056797216
+    },
+    {
+      "step": 2000,
+      "rmse": 5.919341942973592,
+      "bias": -1.1724467177745221
+    },
+    {
+      "step": 3000,
+      "rmse": 6.129715534045372,
+      "bias": -1.3025462161624055
+    },
+    {
+      "step": 4000,
+      "rmse": 6.242975839807397,
+      "bias": -1.3609830103843104
+    },
+    {
+      "step": 5000,
+      "rmse": 6.256850394486771,
+      "bias": -1.3500390907291064
+    },
+    {
+      "step": 6000,
+      "rmse": 6.344228912774133,
+      "bias": -1.355900071420462
+    }
+  ],
+  "best": 5.564106528641718,
+  "args": {
+    "model": "cnn",
+    "data_dir": "data",
+    "out": "models/ablate",
+    "patch": 96,
+    "wet_bias": 0.8,
+    "batch": 32,
+    "steps": 6000,
+    "lr": 0.0002,
+    "warmup": 500,
+    "eval_every": 1000,
+    "workers": 8,
+    "dev_days": 0,
+    "base": 64,
+    "dim": 180,
+    "groups": 4,
+    "depth": 6,
+    "heads": 6,
+    "timesteps": 1000,
+    "mean_ckpt": null,
+    "ema": 0.999,
+    "seed": 0,
+    "max_minutes": 0,
+    "amp": "bf16",
+    "loss": "logmse",
+    "w_log": 0.5,
+    "tag": "logmse"
+  },
+  "steps_done": 6000,
+  "minutes": 2.870682084560394,
+  "params": 11676801
+}

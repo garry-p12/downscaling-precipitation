@@ -1,0 +1,31 @@
+name: downscale
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - scipy
+  - xarray
+  - netcdf4
+  - h5py
+  - h5netcdf
+  - zarr
+  - dask
+  - s3fs
+  - fsspec
+  - requests
+  - pyyaml
+  - pyproj
+  - rasterio
+  - rioxarray
+  - scikit-learn
+  - xgboost
+  - matplotlib
+  - joblib
+  - tqdm
+  - pytest
+  - pytorch>=2.2
+  - pip
+  - pip:
+      - earthaccess

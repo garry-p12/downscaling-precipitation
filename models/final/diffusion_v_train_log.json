@@ -1,0 +1,84 @@
+{
+  "history": [
+    {
+      "step": 3000,
+      "loss": 0.03221144780779824
+    },
+    {
+      "step": 6000,
+      "loss": 0.019588380867271157
+    },
+    {
+      "step": 9000,
+      "loss": 0.018889112737467614
+    },
+    {
+      "step": 12000,
+      "loss": 0.018538338772170548
+    },
+    {
+      "step": 15000,
+      "loss": 0.018337063059690357
+    },
+    {
+      "step": 18000,
+      "loss": 0.018176171912905967
+    },
+    {
+      "step": 21000,
+      "loss": 0.01808823154138024
+    },
+    {
+      "step": 24000,
+      "loss": 0.018050402697237743
+    },
+    {
+      "step": 27000,
+      "loss": 0.018049812242126158
+    },
+    {
+      "step": 30000,
+      "loss": 0.018044607406962947
+    }
+  ],
+  "best": 0.018044607406962947,
+  "args": {
+    "model": "diffusion",
+    "data_dir": "data",
+    "out": "models/final",
+    "patch": 96,
+    "no_augment": false,
+    "wet_bias": 0.8,
+    "batch": 32,
+    "steps": 30000,
+    "lr": 0.0002,
+    "warmup": 500,
+    "eval_every": 3000,
+    "workers": 8,
+    "dev_days": 0,
+    "base": 64,
+    "dim": 180,
+    "groups": 4,
+    "depth": 6,
+    "heads": 6,
+    "timesteps": 1000,
+    "param": "v",
+    "min_snr_gamma": 5.0,
+    "mean_ckpt": "models/final/cnn_best.pt",
+    "ema": 0.999,
+    "seed": 0,
+    "max_minutes": 22.0,
+    "amp": "bf16",
+    "loss": "mse",
+    "w_log": 0.5,
+    "tau": 0.9,
+    "w_quantile": 0.3,
+    "heavy_mm": 0.0,
+    "heavy_weight": 1.0,
+    "importance_weight": false,
+    "tag": "v"
+  },
+  "steps_done": 30000,
+  "minutes": 21.523613293965656,
+  "params": 12358273
+}

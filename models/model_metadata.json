@@ -1,0 +1,214 @@
+{
+  "stage": "coarse_10km",
+  "model_type": "xgb",
+  "hyperparams": {
+    "n_estimators": 2000,
+    "max_depth": 4,
+    "learning_rate": 0.02,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 5
+  },
+  "best_iteration": -1,
+  "n_train_rows": 6744150,
+  "n_val_rows": 767550,
+  "feature_names": [
+    "imerg",
+    "imerg_roll7",
+    "imerg_pct",
+    "imerg_nbr3",
+    "doy_sin",
+    "doy_cos",
+    "dem_mean",
+    "dem_std",
+    "slope_mean",
+    "imperv_mean",
+    "lc_frac_water",
+    "lc_frac_developed",
+    "lc_frac_barren",
+    "lc_frac_forest",
+    "lc_frac_shrub",
+    "lc_frac_grass",
+    "lc_frac_crop",
+    "lc_frac_wetland",
+    "cape_max",
+    "cape",
+    "tcwv",
+    "tcwv_max",
+    "t2m",
+    "wind_speed",
+    "wind_sin",
+    "wind_cos",
+    "moist_flux",
+    "imerg_wet_frac",
+    "imerg_cond_intensity",
+    "imerg_mw_frac",
+    "imerg_prob_liquid"
+  ],
+  "feature_importance": [
+    {
+      "feature": "imerg_nbr3",
+      "importance": 0.5217647887523105
+    },
+    {
+      "feature": "imerg",
+      "importance": 0.1873949053299568
+    },
+    {
+      "feature": "imerg_pct",
+      "importance": 0.08472386077440212
+    },
+    {
+      "feature": "imerg_cond_intensity",
+      "importance": 0.023453978798322058
+    },
+    {
+      "feature": "imerg_wet_frac",
+      "importance": 0.022739515517230167
+    },
+    {
+      "feature": "imerg_roll7",
+      "importance": 0.01531126299741938
+    },
+    {
+      "feature": "imerg_mw_frac",
+      "importance": 0.011795672313523888
+    },
+    {
+      "feature": "wind_speed",
+      "importance": 0.011335819225113928
+    },
+    {
+      "feature": "cape",
+      "importance": 0.010408725949360693
+    },
+    {
+      "feature": "tcwv_max",
+      "importance": 0.009230928121507323
+    },
+    {
+      "feature": "t2m",
+      "importance": 0.00899480396839938
+    },
+    {
+      "feature": "wind_sin",
+      "importance": 0.008713218158919334
+    },
+    {
+      "feature": "tcwv",
+      "importance": 0.008334164369603709
+    },
+    {
+      "feature": "doy_sin",
+      "importance": 0.0075508337685873134
+    },
+    {
+      "feature": "moist_flux",
+      "importance": 0.006337527240841929
+    },
+    {
+      "feature": "lc_frac_grass",
+      "importance": 0.0061517294913624055
+    },
+    {
+      "feature": "cape_max",
+      "importance": 0.0061441654026406995
+    },
+    {
+      "feature": "doy_cos",
+      "importance": 0.006056768537272432
+    },
+    {
+      "feature": "dem_mean",
+      "importance": 0.005585094706291493
+    },
+    {
+      "feature": "lc_frac_shrub",
+      "importance": 0.005131343810501926
+    },
+    {
+      "feature": "wind_cos",
+      "importance": 0.004505620144122626
+    },
+    {
+      "feature": "lc_frac_developed",
+      "importance": 0.004160842553183773
+    },
+    {
+      "feature": "dem_std",
+      "importance": 0.0037602795607298944
+    },
+    {
+      "feature": "slope_mean",
+      "importance": 0.0037329010202515047
+    },
+    {
+      "feature": "lc_frac_crop",
+      "importance": 0.0036315175121364542
+    },
+    {
+      "feature": "lc_frac_forest",
+      "importance": 0.0031493604968875787
+    },
+    {
+      "feature": "imperv_mean",
+      "importance": 0.0031042819888003966
+    },
+    {
+      "feature": "lc_frac_barren",
+      "importance": 0.002852069068419875
+    },
+    {
+      "feature": "lc_frac_water",
+      "importance": 0.0016958233315934248
+    },
+    {
+      "feature": "lc_frac_wetland",
+      "importance": 0.001451867751137878
+    },
+    {
+      "feature": "imerg_prob_liquid",
+      "importance": 0.000796329339169183
+    }
+  ],
+  "top10_features": [
+    "imerg_nbr3",
+    "imerg",
+    "imerg_pct",
+    "imerg_cond_intensity",
+    "imerg_wet_frac",
+    "imerg_roll7",
+    "imerg_mw_frac",
+    "wind_speed",
+    "cape",
+    "tcwv_max"
+  ],
+  "metrics": {
+    "train_rmse": 4.232220649719238,
+    "val_rmse": 4.401681423187256,
+    "val_rmse_imerg_raw": 4.812447547912598,
+    "val_bias": -0.04343182221055031,
+    "val_corr": 0.8484973880939027,
+    "val_corr_imerg_raw": 0.8206910550538823
+  },
+  "train_period": [
+    "2000-06-01",
+    "2017-12-31"
+  ],
+  "val_period": [
+    "2019-01-01",
+    "2020-12-31"
+  ],
+  "domain": {
+    "name": "austin_tx",
+    "bbox": [
+      -99.0,
+      28.5,
+      -96.0,
+      32.0
+    ],
+    "coarse_res_deg": 0.1,
+    "fine_factor": 12
+  },
+  "trained_at": "2026-09-27T22:17:05.117817+00:00"
+}
