@@ -4,7 +4,13 @@ data/processed/
 data/auxiliary/
 data/*.log
 models/*.pkl
+# Model output: regenerable from the pipeline and far too large for git.
+# `results/*.nc` only matched the top level, which let 3.1 GB into history via
+# results/final, results/v2 and results/v3 -- a clean clone had to check all of
+# it out. The web viewer's PNG tiles are a deliberate exception and are kept by
+# web/.gitignore, because the site is deployed from a clean clone.
 results/*.nc
+results/**/*.nc
 results/**/*.png
 results/**/*.csv
 results/*.png
