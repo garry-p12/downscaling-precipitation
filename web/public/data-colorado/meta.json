@@ -1,0 +1,1 @@
+{"vmax": 200.0, "heavy": 30.0, "floor": 0.1, "width": 360, "height": 420, "bbox": [-107.0, 38.5, -104.008333, 41.991667], "layers": ["aorc", "nearest", "bilinear", "ml"], "nDays": 90, "factor": 12, "period": ["2019-01-11", "2020-12-29"]}

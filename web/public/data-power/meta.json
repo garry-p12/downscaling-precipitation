@@ -1,0 +1,1 @@
+{"vmax": 200.0, "heavy": 30.0, "floor": 0.1, "width": 360, "height": 420, "bbox": [-99.0, 28.5, -96.008333, 31.991667], "layers": ["aorc", "nearest", "bilinear", "ml", "cnn", "cnn_spectral", "swin", "diffusion", "diffusion_member"], "nDays": 90, "factor": 60, "period": ["2019-01-02", "2020-12-31"]}

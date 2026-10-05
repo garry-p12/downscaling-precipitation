@@ -1,0 +1,1 @@
+{"vmax": 200.0, "heavy": 30.0, "width": 360, "height": 420, "encoding": "p = vmax * (v/255)^2 ; alpha 0 = no data", "bbox": [-99.0, 28.5, -96.008333, 31.991667], "layers": ["aorc", "nearest", "bilinear", "xgboost", "cnn", "cnn_spectral", "swin", "diffusion", "diffusion_member"], "nDays": 183, "floor": 0.1, "period": ["2019-01-01", "2020-12-31"]}
