@@ -43,7 +43,7 @@ const NWS: Stop[] = [
 
 const RAMPS: Record<RampId, Stop[]> = { warm: WARM, nws: NWS };
 
-export const RAMP_LABEL: Record<RampId, string> = { warm: "Warm", nws: "NWS" };
+export const RAMP_LABEL: Record<RampId, string> = { warm: "Simple", nws: "Weather map" };
 
 /** Cool blue on one side, the ramp's terracotta on the other. */
 const DIVERGE: Stop[] = [

@@ -1,23 +1,16 @@
 "use client";
 import { useMemo } from "react";
-import type { Day, LayerId } from "@/lib/types";
-import { LAYER_META } from "@/lib/types";
-import Info from "./Info";
+import type { Day } from "@/lib/types";
 
 interface Props {
-  days: Day[]; index: number; playing: boolean; speed: number; focus: LayerId;
+  days: Day[]; index: number; playing: boolean; speed: number;
   onIndex: (i: number) => void; onPlay: () => void; onSpeed: (s: number) => void;
 }
 
-export default function Scrubber({ days, index, playing, speed, focus, onIndex, onPlay, onSpeed }: Props) {
+export default function Scrubber({ days, index, playing, speed, onIndex, onPlay, onSpeed }: Props) {
   const max = useMemo(() => Math.max(...days.map((d) => d.obsMean)), [days]);
   const cur = days[index];
   const frac = index / Math.max(1, days.length - 1);
-
-  const m = focus === "aorc" ? null : cur.m[focus];
-  const caption = !m
-    ? `observed peak ${cur.obsMax.toFixed(1)} mm in one square kilometre`
-    : `${LAYER_META[focus].short} was ${Math.abs(m.bias).toFixed(2)} mm ${m.bias < 0 ? "too dry" : "too wet"} on average · peak ${m.max.toFixed(0)} vs ${cur.obsMax.toFixed(0)} observed`;
 
   const path = useMemo(() => {
     const W = 1000, H = 34;
@@ -48,17 +41,10 @@ export default function Scrubber({ days, index, playing, speed, focus, onIndex, 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <button onClick={onPlay} className="btn-dark">
           <span className="w-2.5 text-center not-italic">{playing ? "❙❙" : "▶"}</span>
-          {playing ? "Pause" : "Play storms"}
+          {playing ? "Pause" : "Play through"}
         </button>
         <div className="mono text-[19px] tracking-tight">{cur.date}</div>
-        <p className="text-[12.5px] text-[var(--ink2)] flex-1 min-w-[16rem]">
-          {caption.split("·").map((part, i) => (
-            <span key={i}>
-              {i > 0 && <span className="text-[var(--ink3)]"> · </span>}
-              {part.trim()}
-            </span>
-          ))}
-        </p>
+        <span className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="eyebrow">speed</span>
           <div className="seg">
@@ -69,12 +55,7 @@ export default function Scrubber({ days, index, playing, speed, focus, onIndex, 
         </div>
       </div>
 
-      <p className="eyebrow mt-4 flex items-center gap-2">
-        rainfall, each day of the record
-        <Info text="Height is the observed domain-mean rainfall for that day. The record is the 130 wettest test days plus every 11th day for seasonal spread." />
-      </p>
-
-      <div className="relative mt-2 select-none cursor-pointer" onPointerDown={scrub}>
+      <div className="relative mt-4 select-none cursor-pointer" onPointerDown={scrub}>
         <svg viewBox="0 0 1000 34" preserveAspectRatio="none" className="w-full h-[34px] block">
           <path d={area} fill="var(--ramp-2)" />
           <path d={path} fill="none" stroke="var(--ramp-5)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
@@ -89,7 +70,7 @@ export default function Scrubber({ days, index, playing, speed, focus, onIndex, 
 
       <div className="flex justify-between mono text-[10.5px] text-[var(--ink3)] mt-2">
         <span>{days[0].date}</span>
-        <span>day {index + 1} of {days.length} · {cur.obsHeavy.toLocaleString()} cells over 30 mm</span>
+        <span>day {index + 1} of {days.length}</span>
         <span>{days[days.length - 1].date}</span>
       </div>
     </div>

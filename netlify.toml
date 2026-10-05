@@ -1,0 +1,42 @@
+# Netlify configuration for the 1 km downscaling viewer.
+#
+# The app is a Next.js static export (`output: "export"` in web/next.config.ts):
+# plain HTML, JS and data files, no serverless functions. The repository root
+# holds the research pipeline, so `base` points Netlify at the web/ subtree.
+#
+# The ~70 MB of field tiles under web/public/data* are git-ignored, because they
+# are regenerated output rather than source. See web/README.md for the two ways
+# to get them in front of the site: deploy a local build that already contains
+# them, or host them separately and set NEXT_PUBLIC_DATA_BASE.
+
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Keep the build quiet about telemetry rather than prompting.
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Next emits content-hashed filenames here, so these can never go stale.
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Field tiles are large and rarely change, but they *can* change when a study is
+# rebuilt with a new model -- the POWER set gained three layers in a day. An
+# hour of freshness with background revalidation keeps the viewer fast without
+# serving a superseded model to a returning reader.
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+# meta.json and days.json describe which layers exist, so a stale copy would
+# make the viewer request tiles that are no longer there.
+[[headers]]
+  for = "/*.json"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"

@@ -1,11 +1,26 @@
-/** The three studies the playground can show. All share a 420 x 360 fine grid. */
+/**
+ * Where the field tiles are served from. Empty means "this site", i.e. the
+ * ~70 MB of PNGs under `public/`. Set `NEXT_PUBLIC_DATA_BASE` to an absolute
+ * URL to keep them out of the deploy and serve them from a bucket or CDN
+ * instead; the tiles are plain static files, so any host will do.
+ */
+export const DATA_BASE = (process.env.NEXT_PUBLIC_DATA_BASE ?? "").replace(/\/+$/, "");
+
+/** Resolve a tile path against that base. */
+export const dataUrl = (path: string) => `${DATA_BASE}${path}`;
+
+/** The three places the viewer can show. All share a 420 x 360 fine grid. */
 export interface DomainDef {
   id: string;
   label: string;
   sub: string;
   input: string;
+  /** The coarse cell size, as the headline says it out loud. */
+  coarse: string;
+  /** What the coarse data is, for a sentence: "what the satellite delivers". */
+  source: string;
   dir: string;
-  /** RMSE reduction against bilinear, on this domain's scored box. */
+  /** How much closer than bilinear interpolation, as a percentage, over this area. */
   gain: number;
   rmse: number;
   bilinear: number;
@@ -15,34 +30,34 @@ export interface DomainDef {
 
 export const DOMAINS: DomainDef[] = [
   {
-    id: "austin", label: "Austin, Texas", sub: "flat · convective",
-    input: "IMERG 10 km", dir: "/data",
+    id: "austin", label: "Austin, Texas", sub: "flat · summer thunderstorms",
+    input: "Satellite, 10 km", coarse: "10 km", source: "satellite", dir: "/data",
     gain: 6.8, rmse: 4.583, bilinear: 4.919,
-    note: "No cell exceeds 5° slope. Rain falls where a storm happens to fire, and nothing in a 10 km average predicts that.",
+    note: "Nowhere here is steeper than a gentle hill. Rain falls where a storm happens to fire, and a 10 km average has no way of knowing where that is.",
     accent: "#8296a6",
   },
   {
-    id: "colorado", label: "Colorado Front Range", sub: "orographic · 25.5 % steep",
-    input: "IMERG 10 km", dir: "/data-colorado",
+    id: "colorado", label: "Colorado Front Range", sub: "mountains · a quarter of it steep",
+    input: "Satellite, 10 km", coarse: "10 km", source: "satellite", dir: "/data-colorado",
     gain: 15.0, rmse: 2.825, bilinear: 3.324,
-    note: "Elevation 1,221–4,245 m. Terrain decides where precipitation lands, so the mapping becomes learnable — skill more than doubles.",
+    note: "From 1,200 m to 4,200 m. The mountains decide where rain lands, so there is a real pattern to learn — and the models get more than twice as much out of it.",
     accent: "#2d6ca8",
   },
   {
-    id: "power", label: "NASA POWER", sub: "50 km reanalysis input",
-    input: "POWER 0.5°", dir: "/data-power",
+    id: "power", label: "NASA POWER", sub: "a much blurrier starting point",
+    input: "Weather model, 50 km", coarse: "50 km", source: "weather model", dir: "/data-power",
     gain: 9.9, rmse: 5.679, bilinear: 6.303,
-    note: "Same Austin box, but the input is 0.5° MERRA-2: 3,600 fine cells per coarse cell instead of 144. A larger relative gain off a far worse starting point.",
+    note: "The same patch of Texas, but starting from 50 km squares instead of 10 km — 25 times blurrier. More to gain, from a far worse start.",
     accent: "#cf5f2e",
   },
 ];
 
-/** Seasonal decomposition of the Colorado domain — the study's central result. */
+/** Colorado split by season — the clearest result in the study. */
 export const LADDER = [
-  { label: "Colorado, cool season", sub: "Oct–Apr · orographic", gain: 20.8, accent: "#2d6ca8" },
-  { label: "Colorado, all year", sub: "mixed", gain: 15.0, accent: "#7d8f5f" },
-  { label: "Colorado, warm season", sub: "May–Sep · convective", gain: 8.0, accent: "#c98a04" },
-  { label: "Austin, all year", sub: "convective, flat", gain: 6.8, accent: "#8296a6" },
+  { label: "Colorado, Oct–Apr", sub: "storms pushed up over the mountains", gain: 20.8, accent: "#2d6ca8" },
+  { label: "Colorado, all year", sub: "a mix of both", gain: 15.0, accent: "#7d8f5f" },
+  { label: "Colorado, May–Sep", sub: "summer thunderstorms", gain: 8.0, accent: "#c98a04" },
+  { label: "Austin, all year", sub: "thunderstorms, flat ground", gain: 6.8, accent: "#8296a6" },
 ];
 
 export const SEEDS = [

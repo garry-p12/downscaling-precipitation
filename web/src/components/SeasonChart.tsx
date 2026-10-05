@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import type { Day, LayerId } from "@/lib/types";
 import { LAYER_META } from "@/lib/types";
+import { METRIC } from "@/lib/metrics";
 
 type Metric = "rmse" | "bias" | "pod" | "max";
 
@@ -32,13 +33,13 @@ export default function SeasonChart({ days, index, layers, metric, onIndex }: Pr
   const Y = (v: number) => mt + ((hi + pad - v) / (hi - lo + 2 * pad)) * (H - mt - mb);
   const X = (i: number) => ml + (i / Math.max(1, days.length - 1)) * (W - ml - mr);
   const ticks = Array.from({ length: 5 }, (_, i) => lo - (metric === "bias" ? pad : 0) + ((hi + pad - lo + (metric === "bias" ? pad : 0)) * i) / 4);
-  const label = { rmse: "RMSE, mm day⁻¹", bias: "bias, mm day⁻¹",
-                  pod: "POD above 30 mm", max: "domain peak, mm day⁻¹" }[metric];
+  const label = { rmse: METRIC.miss.axis, bias: METRIC.wetdry.axis,
+                  pod: METRIC.heavy.axis, max: METRIC.peak.axis }[metric];
 
   return (
     <div className="card p-4">
       <div className="flex items-baseline gap-3 mb-1">
-        <h3 className="text-[14px] font-bold">Every day in the record</h3>
+        <h3 className="text-[14px] font-bold">Every day, side by side</h3>
         <span className="lbl">{label}</span>
         <span className="lbl ml-auto">click to jump to a day</span>
       </div>
@@ -74,7 +75,7 @@ export default function SeasonChart({ days, index, layers, metric, onIndex }: Pr
         ))}
         {metric === "max" && (
           <text x={W - mr + 10} y={mt + 11 + series.length * 15} fill="var(--ink)"
-            style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", fontWeight: 600 }}>AORC</text>
+            style={{ fontSize: 10.5, fontFamily: "var(--font-mono)", fontWeight: 600 }}>What fell</text>
         )}
         <text x={ml} y={H - 8} fill="var(--ink3)" style={{ fontSize: 10, fontFamily: "var(--font-mono)" }}>{days[0].date}</text>
         <text x={W - mr} y={H - 8} textAnchor="end" fill="var(--ink3)"

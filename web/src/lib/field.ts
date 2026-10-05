@@ -1,4 +1,5 @@
 import type { Field, LayerId, Meta } from "./types";
+import { dataUrl } from "./domains";
 
 const cache = new Map<string, Field>();
 const inflight = new Map<string, Promise<Field>>();
@@ -19,7 +20,7 @@ export async function loadField(layer: LayerId, date: string, meta: Meta,
   if (pending) return pending;
 
   const p = (async () => {
-    const res = await fetch(`${dir}/fields/${layer}/${date}.png`);
+    const res = await fetch(dataUrl(`${dir}/fields/${layer}/${date}.png`));
     if (!res.ok) throw new Error(`tile ${k}: ${res.status}`);
     const bmp = await createImageBitmap(await res.blob());
     const { width, height } = bmp;
@@ -60,9 +61,9 @@ export function sampleAt(f: Field | undefined, x: number, y: number): number {
 
 /** Zoom windows, in fractional grid coordinates. */
 export const WINDOWS: Record<string, { label: string; box: [number, number, number, number] | null; hint: string }> = {
-  full:    { label: "Full domain",   box: null,                     hint: "300 × 390 km · 151,200 cells" },
-  austin:  { label: "Austin",        box: [0.28, 0.36, 0.52, 0.60], hint: "~72 × 94 km around 30.27 N, 97.74 W" },
-  hill:    { label: "Hill Country",  box: [0.04, 0.30, 0.34, 0.60], hint: "the only relief in the domain" },
-  east:    { label: "East plains",   box: [0.62, 0.30, 0.96, 0.62], hint: "flat, wetter, convective" },
-  zoom:    { label: "70 km texture", box: [0.34, 0.40, 0.57, 0.63], hint: "tight enough to see individual cells" },
+  full:    { label: "Everything",    box: null,                     hint: "300 by 390 km, every square kilometre of it" },
+  austin:  { label: "Austin",        box: [0.28, 0.36, 0.52, 0.60], hint: "roughly 72 by 94 km around the city" },
+  hill:    { label: "Hill Country",  box: [0.04, 0.30, 0.34, 0.60], hint: "the only hills anywhere in this view" },
+  east:    { label: "Eastern plains", box: [0.62, 0.30, 0.96, 0.62], hint: "flat, wetter, thunderstorm country" },
+  zoom:    { label: "Close in",      box: [0.34, 0.40, 0.57, 0.63], hint: "tight enough to pick out single kilometres" },
 };

@@ -19,38 +19,38 @@ export default function Rail({
   domain, onDomain, win, onWin, ramp, onRamp, tab, diffScale, onDiffScale, meta, sel, onToggle, nDays,
 }: Props) {
   const picks = tab === "all" || tab === "diff" || tab === "season";
-  const cells = meta.width * meta.height;
+  const years = [meta.period[0].slice(0, 4), meta.period[1].slice(0, 4)];
 
   return (
     <aside className="border-b lg:border-b-0 lg:border-r border-[var(--line)] px-4 lg:px-5 py-5
                       [&>*]:max-w-[560px] lg:[&>*]:max-w-none
                       lg:sticky lg:top-[var(--head)] lg:max-h-[calc(100vh-var(--head))] lg:overflow-y-auto">
-      <p className="eyebrow">Study conditions</p>
-
-      <div className="mt-4">
-        <span className="field">Domain and input</span>
+      <div>
+        <span className="field flex items-center gap-2">
+          Place <Info text={domain.note} />
+        </span>
         <div className="space-y-1.5">
           {DOMAINS.map((d) => (
             <button key={d.id} className="ctl w-full !text-left !py-2.5" aria-pressed={d.id === domain.id}
               onClick={() => onDomain(d)}>
               <span className="block text-[13.5px] leading-tight">{d.label}</span>
-              <span className="block text-[11px] mt-[3px] opacity-70">{d.input} · {d.sub}</span>
+              <span className="block text-[11px] mt-[3px] opacity-70">{d.sub}</span>
             </button>
           ))}
         </div>
-        <p className="hint mt-2">{domain.note}</p>
       </div>
 
       <div className="mt-5">
-        <span className="field">Map window</span>
+        <span className="field flex items-center gap-2">
+          Zoom <Info text={WINDOWS[win].hint} />
+        </span>
         <select className="select" value={win} onChange={(e) => onWin(e.target.value)}>
           {Object.entries(WINDOWS).map(([k, w]) => <option key={k} value={k}>{w.label}</option>)}
         </select>
-        <p className="hint mt-1.5">{WINDOWS[win].hint}</p>
       </div>
 
       <div className="mt-5">
-        <span className="field">Colour scale</span>
+        <span className="field">Colours</span>
         <div className="seg w-full">
           {(["warm", "nws"] as RampId[]).map((r) => (
             <button key={r} className="flex-1" aria-pressed={ramp === r} onClick={() => onRamp(r)}>
@@ -58,30 +58,25 @@ export default function Rail({
             </button>
           ))}
         </div>
-        <p className="hint mt-1.5">
-          {ramp === "warm"
-            ? "One hue, light to dark — intensity reads as intensity."
-            : "The multi-hue NWS ramp, for reading these as weather maps."}
-        </p>
       </div>
 
       {tab === "diff" && (
         <div className="mt-5">
           <span className="field flex items-center gap-2">
-            Difference range
-            <Info text="How many mm/day the colour scale saturates at. Narrow it to bring out structure in the smooth products." />
+            Colour range
+            <Info text="How much rain it takes to reach full colour. Turn it down to bring out faint patterns in the blurrier versions." />
           </span>
           <div className="flex items-center gap-3">
             <input type="range" min={5} max={60} step={5} value={diffScale} className="flex-1"
               onChange={(e) => onDiffScale(+e.target.value)} />
-            <span className="mono text-[12.5px] w-16 text-right">±{diffScale} mm</span>
+            <span className="mono text-[12.5px] w-16 text-right">{diffScale} mm</span>
           </div>
         </div>
       )}
 
       {picks && (
         <div className="mt-5">
-          <span className="field">Products shown</span>
+          <span className="field">Which versions to show</span>
           <div className="grid grid-cols-2 gap-1.5">
             {ORDER.filter((l) => meta.layers.includes(l)).map((l) => {
               const on = sel.includes(l);
@@ -96,16 +91,15 @@ export default function Rail({
               );
             })}
           </div>
-          <p className="hint mt-2">AORC is the reference every score is measured against.</p>
         </div>
       )}
 
-      <div className="statbox mt-6">
-        <p className="mono text-[18px] leading-none">{nDays} days</p>
-        <p className="hint mt-2">
-          in the record, drawn from the {meta.period[0]} – {meta.period[1]} test period ·{" "}
-          {cells.toLocaleString()} one-kilometre cells scored every day
-        </p>
+      <div className="statbox mt-6 flex items-baseline gap-2">
+        <span className="mono text-[17px] leading-none">{nDays}</span>
+        <span className="hint">
+          rainy days, {years[0]}&ndash;{years[1]}
+          <Info text={`The ${nDays} wettest days of the test period plus a spread through the seasons. Every square kilometre is scored, every day.`} />
+        </span>
       </div>
     </aside>
   );

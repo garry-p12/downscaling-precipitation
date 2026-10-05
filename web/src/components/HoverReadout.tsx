@@ -18,22 +18,19 @@ export default function HoverReadout({ cursor, layers, fields, meta, ramp }: Pro
 
   return (
     <div className="card p-4">
-      <p className="hint">Location report</p>
+      <p className="hint">One spot</p>
       <h3 className="text-[16px] font-bold leading-tight mt-0.5 flex items-center gap-2">
         One square kilometre
-        <Info text="Every product's value at the cell under the pointer, with its error against AORC." />
+        <Info text="How much rain every version put at the square kilometre under your pointer, and how far each one is from what actually fell." />
       </h3>
       <p className="mono text-[10.5px] text-[var(--ink3)] mt-1">
         {cursor
           ? `${lat.toFixed(3)} N  ${Math.abs(lon).toFixed(3)} W · cell ${cursor.x}, ${cursor.y}`
-          : "move the pointer over a map"}
+          : "\u2014"}
       </p>
 
       {!cursor ? (
-        <p className="text-[13px] text-[var(--ink2)] leading-relaxed mt-3">
-          Hovering reports every visible product at the same square kilometre at once — the comparison
-          a static figure cannot make.
-        </p>
+        <p className="hint mt-3">Hover a map to read every version at one square kilometre.</p>
       ) : (
         <div className="mt-3 space-y-[3px]">
           {layers.map((l) => {
@@ -51,14 +48,14 @@ export default function HoverReadout({ cursor, layers, fields, meta, ramp }: Pro
                 <span className="mono w-12 text-right text-[var(--ink)]">{isFinite(v) ? v.toFixed(1) : "—"}</span>
                 <span className="mono w-14 text-right"
                   style={{ color: d == null ? "var(--ink3)" : Math.abs(d) < 1 ? "var(--ink3)" : d > 0 ? "var(--accent)" : "var(--cool)" }}>
-                  {d == null ? "observed" : `${d > 0 ? "+" : ""}${d.toFixed(1)}`}
+                  {d == null ? "what fell" : `${d > 0 ? "+" : ""}${d.toFixed(1)}`}
                 </span>
               </div>
             );
           })}
         </div>
       )}
-      <p className="hint mt-3">mm day⁻¹ · right column is the error against AORC</p>
+      <p className="hint mt-3">mm · right column is the error</p>
     </div>
   );
 }

@@ -40,9 +40,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Generated field tiles, one directory per study (~50 MB). Rebuild with:
-#   python scripts/gen_web_tiles.py --out web/public/data           --wettest 130 --stride 11
-#   python scripts/gen_web_tiles.py --out web/public/data-colorado  --wettest 130 --stride 11
-#   python scripts/gen_web_tiles.py --out web/public/data-power     --wettest 130 --stride 11
-/public/data
-/public/data-*
+# Field tiles ARE committed, deliberately. They are generated output, but the
+# site is deployed from git and Netlify builds from a clean clone -- without
+# them the deploy is a working page with no maps. ~70 MB, regenerate with:
+#   python scripts/gen_web_tiles.py    --out web/public/data          --wettest 130 --stride 11
+#   python scripts/gen_domain_tiles.py --config config_colorado.yaml  --out web/public/data-colorado --wettest 90
+#   python scripts/gen_domain_tiles.py --config config_power.yaml     --out web/public/data-power    --wettest 90
+# If the repository gets uncomfortable, host them instead and set
+# NEXT_PUBLIC_DATA_BASE (see web/README.md).
+
+# Next.js static export
+/out/

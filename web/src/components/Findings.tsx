@@ -26,12 +26,12 @@ export default function Findings() {
   return (
     <div className="space-y-5">
       <div className="card p-5">
-        <h3 className="text-[19px] font-bold mb-1">Skill tracks orographic forcing</h3>
+        <h3 className="text-[19px] font-bold mb-1">Mountains help. Flat ground doesn&rsquo;t.</h3>
         <p className="text-[13px] text-[var(--ink2)] mb-4 max-w-[62ch]">
-          RMSE reduction against bilinear interpolation. The bottom two rows are the result:
-          warm-season Colorado and flat Austin score within 1.2 points of each other, despite
-          25.5 percentage points of difference in steep terrain. Terrain only buys skill when
-          the season engages it.
+          How much closer each model gets than plain bilinear smoothing. The bottom two bars are the point:
+          a Colorado summer and flat Austin land within a point of each other, even though a quarter
+          of Colorado is steep ground. Terrain only helps when the weather is using it — storms
+          shoved up a mountainside land in a place you can predict, and summer thunderstorms don&rsquo;t.
         </p>
         <div className="space-y-2.5">
           {LADDER.map((r) => (
@@ -41,33 +41,36 @@ export default function Findings() {
                 <span className="block text-[11px] text-[var(--ink3)]">{r.sub}</span>
               </span>
               <Bar v={r.gain} max={max} accent={shade(r.gain)} />
-              <span className="mono text-[13px] text-right" style={{ color: r.gain >= 12 ? "var(--ramp-6)" : "var(--ink2)" }}>
+              <span className="mono text-[13px] text-right"
+                style={{ color: r.gain >= 12 ? "var(--ramp-6)" : "var(--ink2)" }}>
                 {r.gain.toFixed(1)} %
               </span>
             </div>
           ))}
         </div>
-        <p className="lbl mt-4">dashed target in the paper is 20 % · only the cool season reaches it</p>
+        <p className="hint mt-4">closer than bilinear · the study set out to reach 20 %, and only the mountain winter does</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-5">
         <div className="card p-5">
           <h3 className="text-[14px] font-bold flex items-center gap-2 mb-1">
-            Seed repeats <Info text="Ten training runs. Each family's range across random seeds, on the Austin test set." />
+            Train it twice, get two answers
+            <Info text="Ten training runs in all. Each row is the range of scores one recipe produced when it was re-run with a different random start." />
           </h3>
           <p className="text-[12.5px] text-[var(--ink2)] mb-4">
-            Swin beats the CNN in all nine pairwise comparisons and the ranges do not
-            overlap — but a single run put them 0.010 apart, four times smaller than the
-            true difference.
+            Training has randomness in it, so the same recipe lands on a slightly different answer
+            each time. Swin beats the CNN in all nine head-to-head runs — but one pair of runs
+            finished 0.010 apart, four times closer than the real gap between them.
+            A single run proves nothing.
           </p>
           {SEEDS.map((f) => {
             const lo = Math.min(...f.values), hi = Math.max(...f.values);
             const L = 4.56, R = 4.72;
             return (
               <div key={f.family} className="mb-3.5">
-                <div className="flex justify-between mono text-[11px] mb-1">
-                  <span className="text-[var(--ink)]">{f.family} · {f.n} seeds</span>
-                  <span style={{ color: f.accent }}>{(hi - lo).toFixed(3)} spread</span>
+                <div className="flex justify-between text-[11px] mb-1">
+                  <span className="text-[var(--ink)]">{f.family} · {f.n} runs</span>
+                  <span className="mono" style={{ color: f.accent }}>{(hi - lo).toFixed(3)} apart</span>
                 </div>
                 <div className="relative h-[20px] rounded-[3px]" style={{ background: "var(--track)" }}>
                   <span className="absolute inset-y-[5px] rounded-full opacity-40"
@@ -81,53 +84,55 @@ export default function Findings() {
               </div>
             );
           })}
-          <p className="lbl">test RMSE mm day⁻¹ · 4.56 → 4.72</p>
+          <p className="hint">how far off, in mm · the scale runs 4.56 to 4.72</p>
         </div>
 
         <div className="card p-5">
           <h3 className="text-[14px] font-bold flex items-center gap-2 mb-1">
-            Cross-domain transfer <Info text="Training on one domain and scoring on another, to see what the model actually learned." />
+            A model doesn&rsquo;t travel
+            <Info text="Training in one place and using it in another, to see what the model actually picked up." />
           </h3>
           <p className="text-[12.5px] text-[var(--ink2)] mb-4">
-            A Colorado-trained model is 13.7 % <em>worse</em> than bilinear on Austin. It
-            swings bias from −0.08 to +0.35, because what it learned was that its own
-            retrieval runs dry — not how orography shapes rain.
+            Train in Colorado, use it over Texas, and it does <em>worse</em> than bilinear by
+            13.7 %. It flips from slightly too dry to clearly too wet — because what it really learned
+            was that its own satellite feed runs dry over Colorado, not how mountains shape rain.
           </p>
           <div className="space-y-1.5">
             {TRANSFER.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 mono text-[11.5px] px-2.5 py-2 rounded-[8px]"
+              <div key={i} className="flex items-center gap-2 text-[12px] px-2.5 py-2 rounded-[8px]"
                 style={{ background: r.gain < 0 ? "var(--accent-soft)" : "var(--card)",
                          border: `1px solid ${r.gain < 0 ? "var(--accent-line)" : "var(--line)"}` }}>
                 <span className="flex-1 text-[var(--ink2)]">
                   {r.train} <span className="text-[var(--ink3)]">→</span> {r.score}
                 </span>
-                <span className="tabular-nums text-[var(--ink)] w-12 text-right">{r.rmse.toFixed(3)}</span>
-                <span className="tabular-nums w-16 text-right font-semibold"
+                <span className="mono text-[var(--ink)] w-12 text-right">{r.rmse.toFixed(2)}</span>
+                <span className="mono w-16 text-right font-semibold"
                   style={{ color: r.gain < 0 ? "var(--accent)" : "var(--good)" }}>
                   {r.gain > 0 ? "+" : ""}{r.gain.toFixed(1)} %
                 </span>
               </div>
             ))}
           </div>
-          <p className="lbl mt-3">trained → scored · RMSE · vs bilinear</p>
+          <p className="hint mt-3">trained → used · how far off, in mm · and how that compares with bilinear</p>
         </div>
       </div>
 
       <div className="card p-5">
-        <h3 className="text-[14px] font-bold mb-1">Three studies, one viewer</h3>
+        <h3 className="text-[14px] font-bold mb-1">Three places, one viewer</h3>
         <p className="text-[12.5px] text-[var(--ink2)] mb-4 max-w-[64ch]">
-          All three share a 420 × 360 one-kilometre grid and the same 2019–2020 test days,
-          so the maps are directly comparable. Switch between them above.
+          All three cover the same size of grid and the same days in 2019 and 2020, so the maps line
+          up against each other. Switch between them on the left.
         </p>
         <div className="grid sm:grid-cols-3 gap-4">
           {DOMAINS.map((d) => (
             <div key={d.id} className="rounded-[10px] border border-[var(--line)] p-3.5">
               <span className="block text-[13.5px] font-semibold">{d.label}</span>
-              <span className="lbl">{d.input} · {d.sub}</span>
-              <span className="mono block text-[26px] mt-2 leading-none" style={{ color: d.gain >= 12 ? "var(--ramp-6)" : "var(--ramp-5)" }}>
+              <span className="hint block mt-0.5">{d.input} · {d.sub}</span>
+              <span className="mono block text-[26px] mt-2 leading-none"
+                style={{ color: d.gain >= 12 ? "var(--ramp-6)" : "var(--ramp-5)" }}>
                 {d.gain.toFixed(1)} %
               </span>
-              <span className="lbl">vs bilinear · RMSE {d.rmse.toFixed(3)}</span>
+              <span className="hint block">closer than bilinear · off by {d.rmse.toFixed(1)} mm</span>
               <p className="text-[12px] text-[var(--ink2)] mt-2.5 leading-snug">{d.note}</p>
             </div>
           ))}

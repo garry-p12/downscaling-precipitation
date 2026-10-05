@@ -46,10 +46,11 @@ are only for display.
 
 | tab | what it answers |
 |---|---|
-| **Side by side** | every product on one day, one colour scale |
-| **A / B swipe** | drag a divider between any two products |
-| **Difference** | prediction − AORC, diverging scale, adjustable range |
-| **Across days** | per-day RMSE / bias / POD / peak through the period |
+| **Day by day** | the 10 km input, what fell, and one model's reconstruction, side by side or under a draggable divider |
+| **All versions** | every product on one day, on one colour scale |
+| **Where it's wrong** | prediction − AORC, diverging scale, adjustable range |
+| **Two-year record** | per-day scores for every product across the whole period |
+| **What we learned** | the headline results: seasons, seed spread, cross-domain transfer |
 
 Hovering any map reports the value at that square kilometre for **every visible
 product at once**, with its error against AORC.
@@ -58,16 +59,77 @@ Keyboard: `←` `→` step days, `space` plays.
 
 ## Layers
 
-| id | what it is |
+The portal is written for a general reader, so the interface never says RMSE,
+bias or POD. [`src/lib/metrics.ts`](src/lib/metrics.ts) holds that vocabulary in
+one place — the label, the axis caption and the tooltip for each score. Product
+names are left alone: AORC, IMERG, Bilinear, XGBoost, CNN, Swin and Diffusion
+appear under their own names, and the plain-language explanation of each one
+lives in its `note` in `LAYER_META`
+([`src/lib/types.ts`](src/lib/types.ts)), which the interface shows beside the
+name rather than instead of it.
+
+| id | label | what it is |
+|---|---|---|
+| `aorc` | AORC | 1 km gridded analysis — the reference every score is measured against |
+| `nearest` | IMERG 10 km | IMERG repeated across each 12 × 12 block |
+| `bilinear` | Bilinear | smooth interpolation — the baseline to beat |
+| `xgboost` | XGBoost 2-stage | 2-stage gradient-boosted trees — best RMSE |
+| `cnn` | CNN (U-Net) | 1.65 M-parameter U-Net |
+| `cnn_spectral` | CNN + texture penalty | the same U-Net trained with `--spectral-weight 0.01`; 4x the sub-10 km power at the same RMSE |
+| `swin` | Swin transformer | 7.9 M-parameter shifted-window transformer — best heavy-event detection |
+| `diffusion` | Diffusion, 6-member mean | mean of 6 diffusion members |
+| `diffusion_member` | Diffusion, one member | a single diffusion draw — the only realistic texture |
+
+| score | shown as |
 |---|---|
-| `aorc` | 1 km reference analysis — the truth every score is against |
-| `nearest` | IMERG repeated across each 12 × 12 block |
-| `bilinear` | smooth interpolation — the baseline to beat |
-| `xgboost` | 2-stage gradient-boosted trees — best RMSE |
-| `cnn` | 1.65 M-parameter U-Net |
-| `swin` | 7.9 M-parameter shifted-window transformer — best heavy-event detection |
-| `diffusion` | mean of 6 diffusion members |
-| `diffusion_member` | a single diffusion draw — the only realistic texture |
+| RMSE | how far off, in mm of rain |
+| bias | too wet or too dry |
+| POD above 30 mm | heavy rain caught |
+| domain maximum | heaviest spot |
+
+## Deploying to Netlify
+
+The app is a **static export** — plain HTML, JS and data files, no serverless
+functions. [`netlify.toml`](../netlify.toml) at the repository root points
+Netlify at this subdirectory (`base = "web"`, `publish = "out"`).
+
+**Connect the repository and it just works.** The field tiles are committed, so
+a clean clone has everything the build needs:
+
+```
+Build command     npm run build      (from netlify.toml)
+Publish directory out
+Node version      20
+```
+
+`next build` copies `public/` into `out/`, producing a self-contained 73 MB
+site — 2,817 tiles plus the app.
+
+That choice is deliberate and has a cost. The tiles are generated output, not
+source, and they are ~70 MB that every future clone pays for; regenerating them
+adds another 70 MB to history. The alternative, if the repository becomes
+unwieldy, is to host them separately and set an environment variable in the
+Netlify UI:
+
+```
+NEXT_PUBLIC_DATA_BASE = https://your-bucket.example.com
+```
+
+Every metadata and tile request is prefixed with it (`src/lib/domains.ts`).
+Unset, the app loads tiles from its own origin. On another domain it needs CORS
+to allow your site — the browser decodes the PNGs to real values, so they are
+fetched as data rather than loaded as images.
+
+To deploy a one-off build without git:
+
+```bash
+npm run build && npx netlify deploy --prod --dir=out
+```
+
+Caching is set in `netlify.toml`: hashed `_next/static` assets are immutable,
+tiles get an hour with background revalidation, and `meta.json` / `days.json`
+get five minutes — those list which layers exist, so a stale copy makes the
+viewer ask for tiles that are no longer there.
 
 ## Design
 

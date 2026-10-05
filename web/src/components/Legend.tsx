@@ -15,8 +15,7 @@ function Strip({ title, blocks, lead, tail, ticks }: {
 }) {
   const n = blocks.length;
   return (
-    <div className="px-3.5 pb-3.5">
-      <p className="text-[11.5px] font-semibold leading-tight mb-1.5">{title}</p>
+    <div className="px-3.5 pb-3.5" title={title}>
       <div className="flex gap-px">
         {blocks.map((b, i) => (
           <i key={i} className="flex-1 h-[11px] block first:rounded-l-[2px] last:rounded-r-[2px]"
@@ -39,13 +38,13 @@ function Strip({ title, blocks, lead, tail, ticks }: {
 
 export function PrecipLegend({ vmax, ramp }: { vmax: number; ramp: RampId }) {
   const b = bands(vmax, ramp, 7);
-  return <Strip title="Rainfall, mm per day" blocks={b} lead="0" tail={`${vmax}+`} ticks={[1, 3]} />;
+  return <Strip title="Rain that day, mm" blocks={b} lead="0" tail={`${vmax}+`} ticks={[1, 3]} />;
 }
 
 export function DiffLegend({ scale }: { scale: number }) {
   const b = diffBands(scale, 8);
   return (
-    <Strip title="Prediction − observed, mm per day" blocks={b}
+    <Strip title="Too dry ← → too wet, mm" blocks={b}
       lead={`−${scale}`} tail={`+${scale}`} ticks={[1, 3, 5]} />
   );
 }

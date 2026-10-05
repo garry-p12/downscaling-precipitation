@@ -37,7 +37,7 @@ export default function AppBar({ tabs, value, onChange, days, index, onIndex, on
         <div className="min-w-0">
           <div className="text-[17px] font-bold leading-tight tracking-[-0.01em] truncate">Rain at One Kilometre</div>
           <div className="mono text-[10.5px] text-[var(--ink3)] mt-[3px] truncate">
-            Precipitation downscaling · research prototype
+            Sharpening satellite rain maps · research project
           </div>
         </div>
 
@@ -50,7 +50,7 @@ export default function AppBar({ tabs, value, onChange, days, index, onIndex, on
         </div>
 
         <label className="ml-auto hidden xl:block w-[250px] shrink-0">
-          <span className="hint block mb-1">Jump to a date in the record</span>
+          <span className="hint block mb-1">Jump to a date</span>
           <input className="input mono text-[13px]" list="record-dates" placeholder={days?.[index]?.date ?? "YYYY-MM-DD"}
             value={typed} onChange={(e) => jump(e.target.value)} />
           <datalist id="record-dates">
