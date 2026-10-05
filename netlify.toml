@@ -4,10 +4,10 @@
 # plain HTML, JS and data files, no serverless functions. The repository root
 # holds the research pipeline, so `base` points Netlify at the web/ subtree.
 #
-# The ~70 MB of field tiles under web/public/data* are git-ignored, because they
-# are regenerated output rather than source. See web/README.md for the two ways
-# to get them in front of the site: deploy a local build that already contains
-# them, or host them separately and set NEXT_PUBLIC_DATA_BASE.
+# The ~70 MB of field tiles under web/public/data* are committed, so a clean
+# clone builds a site with working maps and no extra setup. If the repository
+# ever gets uncomfortable, host them separately and point the viewer at them
+# with NEXT_PUBLIC_DATA_BASE (see web/README.md).
 
 [build]
   base = "web"
