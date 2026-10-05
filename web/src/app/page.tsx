@@ -10,14 +10,13 @@ import SwipeView from "@/components/SwipeView";
 import SeasonChart from "@/components/SeasonChart";
 import HoverReadout from "@/components/HoverReadout";
 import Info from "@/components/Info";
-import Findings from "@/components/Findings";
 import { DOMAINS, dataUrl } from "@/lib/domains";
 import { loadField, prefetch, WINDOWS } from "@/lib/field";
 import { METRIC } from "@/lib/metrics";
 import type { RampId } from "@/lib/colormap";
 import { LAYER_META, type Day, type Field, type LayerId, type Meta } from "@/lib/types";
 
-type Tab = "day" | "all" | "diff" | "season" | "findings";
+type Tab = "day" | "all" | "diff" | "season";
 type SeasonMetric = "rmse" | "bias" | "pod" | "max";
 
 const TABS = [
@@ -25,7 +24,6 @@ const TABS = [
   { id: "all",      label: "All versions" },
   { id: "diff",     label: "Where it's wrong" },
   { id: "season",   label: "Two-year record" },
-  { id: "findings", label: "What we learned" },
 ];
 
 /** The season tab's four scores, in the words the rest of the page uses. */
@@ -47,10 +45,6 @@ const HEADLINE: Record<Tab, { h: string; info: string }> = {
   season: {
     h: "How they do across two years",
     info: "A score for every day in the record. The lines sit almost on top of one another — that is the finding, not a drawing error.",
-  },
-  findings: {
-    h: "What we learned",
-    info: "The headline results across all three places. Every number came out of a scored run.",
   },
 };
 
@@ -156,7 +150,6 @@ export default function Page() {
   const day = days[index];
   const fm = day.m[focus];
   const years = [meta.period[0].slice(0, 4), meta.period[1].slice(0, 4)];
-  const wide = tab === "findings";
   const toggle = (l: LayerId) =>
     setSel((s) => (s.includes(l) ? (s.length > 1 ? s.filter((x) => x !== l) : s) : [...s, l]));
 
@@ -173,18 +166,15 @@ export default function Page() {
   return (
     <div className="min-h-screen flex flex-col">
       <AppBar tabs={TABS} value={tab} onChange={(t) => setTab(t as Tab)}
-        days={days} index={index} onIndex={(i) => { setIndex(i); setPlaying(false); }}
-        onAbout={() => setTab("findings")} />
+        days={days} index={index} onIndex={(i) => { setIndex(i); setPlaying(false); }} />
 
-      <div className={`mx-auto w-full max-w-[1760px] flex-1 grid grid-cols-1 ${
-        wide ? "" : "lg:grid-cols-[308px_minmax(0,1fr)] xl:grid-cols-[308px_minmax(0,1fr)_344px]"}`}>
+      <div className="mx-auto w-full max-w-[1760px] flex-1 grid grid-cols-1
+                      lg:grid-cols-[308px_minmax(0,1fr)] xl:grid-cols-[308px_minmax(0,1fr)_344px]">
 
-        {!wide && (
-          <Rail domain={domain} onDomain={setDomain} win={win} onWin={setWin}
-            ramp={ramp} onRamp={setRamp} tab={tab}
-            diffScale={diffScale} onDiffScale={setDiffScale}
-            meta={meta} sel={sel} onToggle={toggle} nDays={meta.nDays} />
-        )}
+        <Rail domain={domain} onDomain={setDomain} win={win} onWin={setWin}
+          ramp={ramp} onRamp={setRamp} tab={tab}
+          diffScale={diffScale} onDiffScale={setDiffScale}
+          meta={meta} sel={sel} onToggle={toggle} nDays={meta.nDays} />
 
         <main className="min-w-0 px-4 lg:px-6 py-5">
           {/* the headline result for this place, in the reference's alert band */}
@@ -197,7 +187,6 @@ export default function Page() {
                 <Info text={`Averaged over every day in ${years[0]} and ${years[1]} over ${domain.label}, not the single day shown below.`} />
               </p>
             </div>
-            <button className="link shrink-0" onClick={() => setTab("findings")}>How we measured this</button>
           </div>
 
           <div className="flex items-start gap-4 flex-wrap mt-5">
@@ -206,7 +195,7 @@ export default function Page() {
                 {head.h} <Info text={head.info} />
               </h1>
               <p className="hint mt-1">
-                {domain.coarse} &rarr; 1 km{!wide && <> &middot; {day.date}</>}
+                {domain.coarse} &rarr; 1 km &middot; {day.date}
               </p>
             </div>
 
@@ -289,37 +278,28 @@ export default function Page() {
               <SeasonChart days={days} index={index} layers={sel} metric={seasonMetric} onIndex={setIndex} />
             )}
 
-            {tab === "findings" && <Findings />}
-
-            {tab !== "findings" && (
-              <Scrubber days={days} index={index} playing={playing} speed={speed}
-                onIndex={(i) => { setIndex(i); setPlaying(false); }}
-                onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />
-            )}
+            <Scrubber days={days} index={index} playing={playing} speed={speed}
+              onIndex={(i) => { setIndex(i); setPlaying(false); }}
+              onPlay={() => setPlaying((p) => !p)} onSpeed={setSpeed} />
           </div>
         </main>
 
-        {!wide && (
-          <aside className="border-t xl:border-t-0 xl:border-l border-[var(--line)] px-4 lg:px-5 py-5 space-y-4
-                            lg:col-span-2 xl:col-span-1
-                            xl:sticky xl:top-[var(--head)] xl:max-h-[calc(100vh-var(--head))] xl:overflow-y-auto">
-            <ProductPanel day={day} value={focus} onChange={(l) => setFocus(l as Exclude<LayerId, "aorc">)}
-              only={meta.layers} exclude={tab === "day" ? ["nearest"] : []}
-              metric={tab === "diff" ? "wetdry" : "miss"}
-              onSwipe={() => { setTab("day"); setMode("swipe"); setSwipeLeft("aorc"); }}
-              onDiff={() => setTab("diff")} />
-            <HoverReadout cursor={cursor} layers={need} fields={fields} meta={meta} ramp={ramp} />
-          </aside>
-        )}
+        <aside className="border-t xl:border-t-0 xl:border-l border-[var(--line)] px-4 lg:px-5 py-5 space-y-4
+                          lg:col-span-2 xl:col-span-1
+                          xl:sticky xl:top-[var(--head)] xl:max-h-[calc(100vh-var(--head))] xl:overflow-y-auto">
+          <ProductPanel day={day} value={focus} onChange={(l) => setFocus(l as Exclude<LayerId, "aorc">)}
+            only={meta.layers} exclude={tab === "day" ? ["nearest"] : []}
+            metric={tab === "diff" ? "wetdry" : "miss"}
+            onSwipe={() => { setTab("day"); setMode("swipe"); setSwipeLeft("aorc"); }}
+            onDiff={() => setTab("diff")} />
+          <HoverReadout cursor={cursor} layers={need} fields={fields} meta={meta} ramp={ramp} />
+        </aside>
       </div>
 
       <footer className="border-t border-[var(--line)]">
         <div className="mx-auto max-w-[1760px] px-4 lg:px-6 py-4 flex flex-wrap gap-x-6 gap-y-2 justify-between
                         text-[11.5px] text-[var(--ink3)]">
-          <span>
-            {meta.nDays} days, {years[0]}&ndash;{years[1]} ·{" "}
-            <button className="link !text-[11.5px]" onClick={() => setTab("findings")}>how it works</button>
-          </span>
+          <span>{meta.nDays} days, {years[0]}&ndash;{years[1]}</span>
           <span>Research project — not a forecast</span>
         </div>
       </footer>

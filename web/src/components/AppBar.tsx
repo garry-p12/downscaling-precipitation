@@ -7,10 +7,9 @@ export interface TabDef { id: string; label: string }
 interface Props {
   tabs: TabDef[]; value: string; onChange: (id: string) => void;
   days: Day[] | null; index: number; onIndex: (i: number) => void;
-  onAbout: () => void;
 }
 
-export default function AppBar({ tabs, value, onChange, days, index, onIndex, onAbout }: Props) {
+export default function AppBar({ tabs, value, onChange, days, index, onIndex }: Props) {
   const [typed, setTyped] = useState("");
 
   /** The record is sparse — 183 of 731 test days — so a typed date snaps to
@@ -57,8 +56,6 @@ export default function AppBar({ tabs, value, onChange, days, index, onIndex, on
             {days?.map((d) => <option key={d.date} value={d.date} />)}
           </datalist>
         </label>
-
-        <button className="link shrink-0 ml-auto xl:ml-0 hidden sm:block" onClick={onAbout}>About the data</button>
       </div>
     </header>
   );
