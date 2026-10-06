@@ -339,7 +339,7 @@ def _opendap_variable(session, url_base: str, variable: str) -> str:
     raise KeyError(f"No precipitation variable in DDS of {url_base}")
 
 
-def _fetch_opendap_subset(session, url: str, out: Path, retries: int = 4) -> Path:
+def _fetch_opendap_subset(session, url: str, out: Path, retries: int = 5) -> Path:
     import time as _time
 
     for attempt in range(retries):
@@ -362,9 +362,32 @@ def _fetch_opendap_subset(session, url: str, out: Path, retries: int = 4) -> Pat
         except Exception as e:  # noqa: BLE001
             if attempt == retries - 1:
                 raise
-            LOG.warning("OPeNDAP fetch failed (%s), retrying in %ds", e, 5 * (attempt + 1))
-            _time.sleep(5 * (attempt + 1))
+            LOG.warning("OPeNDAP fetch failed (%s), retrying in %ds", e, 15 * (attempt + 1))
+            _time.sleep(15 * (attempt + 1))
     return out
+
+
+def _search_granules(icfg: dict, m_start: str, m_end: str, retries: int = 5):
+    """CMR granule search with backoff.
+
+    Compute nodes lose DNS for cmr.earthdata.nasa.gov often enough that an
+    unretried search throws away every hour of fetching that preceded it.
+    """
+    import time as _time
+
+    import earthaccess
+
+    for attempt in range(retries):
+        try:
+            return earthaccess.search_data(short_name=icfg["short_name"], version=str(icfg["version"]),
+                                           temporal=(m_start, m_end))
+        except Exception as e:  # noqa: BLE001
+            if attempt == retries - 1:
+                raise
+            wait = 15 * (attempt + 1)
+            LOG.warning("CMR search failed (%s), retrying in %ds", e, wait)
+            _time.sleep(wait)
+    return []
 
 
 def _download_imerg_opendap(cfg: dict, grids: GridPair, start: str, end: str) -> None:
@@ -391,8 +414,7 @@ def _download_imerg_opendap(cfg: dict, grids: GridPair, start: str, end: str) ->
             continue
         m_start = max(pd.Timestamp(start), per.start_time).strftime("%Y-%m-%d")
         m_end = min(pd.Timestamp(end), per.end_time).strftime("%Y-%m-%d")
-        results = earthaccess.search_data(short_name=icfg["short_name"], version=str(icfg["version"]),
-                                          temporal=(m_start, m_end))
+        results = _search_granules(icfg, m_start, m_end)
         names = sorted({g.data_links()[0].split("/")[-1] for g in results})
         if not names:
             LOG.warning("No IMERG granules found for %s", tag)
@@ -454,9 +476,7 @@ def _download_imerg_granules(cfg: dict, grids: GridPair, start: str, end: str) -
         m_start = max(pd.Timestamp(start), per.start_time).strftime("%Y-%m-%d")
         m_end = min(pd.Timestamp(end), per.end_time).strftime("%Y-%m-%d")
         LOG.info("Searching IMERG %s %s (%s .. %s)", icfg["short_name"], icfg["version"], m_start, m_end)
-        results = earthaccess.search_data(
-            short_name=icfg["short_name"], version=str(icfg["version"]), temporal=(m_start, m_end)
-        )
+        results = _search_granules(icfg, m_start, m_end)
         if not results:
             LOG.warning("No IMERG granules found for %s", tag)
             continue
@@ -612,10 +632,40 @@ def _domain_in_crs(grid: Grid, crs: str, pad_m: float = 3000.0) -> tuple[float, 
     return min(xs) - pad_m, min(ys) - pad_m, max(xs) + pad_m, max(ys) + pad_m
 
 
-def fetch_wcs_tiles(cfg: dict, grid: Grid, coverage: str, tag: str) -> list[Path]:
-    """Download 30 m NLCD tiles covering the domain from the MRLC WCS."""
+def _fetch_wcs_tile(url: str, out: Path, retries: int = 5) -> None:
+    """GET one WCS tile, retrying transient server failures.
+
+    MRLC's geoserver answers overload with HTTP 200 carrying an HTML error
+    page rather than a GeoTIFF, so the content is what has to be checked, not
+    the status code. An unretried tile throws away every tile fetched before
+    it, which on a full domain is close to an hour.
+    """
+    import time as _time
+
     import requests
 
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, timeout=600)
+            ok = r.status_code == 200 and (r.content.startswith(b"II") or r.content.startswith(b"MM"))
+            if ok:
+                out.write_bytes(r.content)
+                return
+            detail = f"HTTP {r.status_code}, {len(r.content)} bytes, not a GeoTIFF"
+        except Exception as e:  # noqa: BLE001
+            detail = f"{type(e).__name__}: {e}"
+        if attempt == retries - 1:
+            raise RuntimeError(f"WCS tile failed after {retries} attempts ({detail}): {url}")
+        wait = 20 * (attempt + 1)
+        LOG.warning("WCS tile failed (%s), retrying in %ds", detail, wait)
+        _time.sleep(wait)
+
+
+def fetch_wcs_tiles(cfg: dict, grid: Grid, coverage: str, tag: str) -> list[Path]:
+    """Download 30 m NLCD tiles covering the domain from the MRLC WCS.
+
+    Tiles are cached to disk, so an interrupted download resumes.
+    """
     ncfg = cfg["data"]["nlcd"]
     tile_m = float(ncfg.get("tile_km", 60)) * 1000.0
     x0, y0, x1, y1 = _domain_in_crs(grid, NLCD_CRS)
@@ -630,20 +680,13 @@ def fetch_wcs_tiles(cfg: dict, grid: Grid, coverage: str, tag: str) -> list[Path
             files.append(out)
             if out.exists() and out.stat().st_size > 0:
                 continue
-            params = {
-                "service": "WCS", "version": "2.0.1", "request": "GetCoverage",
-                "coverageId": coverage, "format": "image/geotiff",
-            }
             url = (
                 f"{ncfg['wcs_url']}?service=WCS&version=2.0.1&request=GetCoverage&coverageId={coverage}"
                 f"&subset=X({tx:.0f},{min(tx + tile_m, x1):.0f})&subset=Y({ty:.0f},{min(ty + tile_m, y1):.0f})"
                 f"&format=image/geotiff"
             )
             LOG.info("WCS %s tile %d/%d", tag, i * len(ys) + j + 1, len(xs) * len(ys))
-            r = requests.get(url, timeout=600)
-            if r.status_code != 200 or not r.content.startswith(b"II") and not r.content.startswith(b"MM"):
-                raise RuntimeError(f"WCS request failed ({r.status_code}): {r.text[:300]}")
-            out.write_bytes(r.content)
+            _fetch_wcs_tile(url, out)
     return files
 
 
@@ -876,14 +919,21 @@ def align_grids(cfg: dict, grids: GridPair, force: bool = False) -> dict[str, Pa
         files = [aorc_daily_path(cfg, y) for y in years if aorc_daily_path(cfg, y).exists()]
         if not files:
             raise FileNotFoundError("No AORC daily files; run `main.py download --aorc` or `--synthetic`")
+        import dask
+
         aorc = xr.open_mfdataset(files, combine="by_coords", engine="netcdf4", chunks={"time": 64})
         assert_on_grid(aorc["precip"], grids.fine, "AORC")
         aorc = aorc.reindex(time=time)
-        to_netcdf(aorc, outputs["aorc_1km"])
-        LOG.info("AORC 1 km aligned -> %s", outputs["aorc_1km"])
-        aorc_c = coarsen_mean(aorc["precip"], grids).astype("float32")
-        aorc_c.attrs = {"units": "mm/day", "long_name": "AORC block-mean precipitation at 10 km"}
-        to_netcdf(xr.Dataset({"precip": aorc_c}).load(), outputs["aorc_10km"])
+        # netCDF4/HDF5 is not thread-safe. Writing the full multi-year cube
+        # through dask's default threaded scheduler deadlocks: the .tmp file
+        # freezes at a few tens of KB and the process sits at 0 % CPU
+        # indefinitely. The synchronous scheduler is slower but finishes.
+        with dask.config.set(scheduler="synchronous"):
+            to_netcdf(aorc, outputs["aorc_1km"])
+            LOG.info("AORC 1 km aligned -> %s", outputs["aorc_1km"])
+            aorc_c = coarsen_mean(aorc["precip"], grids).astype("float32")
+            aorc_c.attrs = {"units": "mm/day", "long_name": "AORC block-mean precipitation at 10 km"}
+            to_netcdf(xr.Dataset({"precip": aorc_c}).load(), outputs["aorc_10km"])
         aorc.close()
         LOG.info("AORC 10 km coarsened -> %s", outputs["aorc_10km"])
 

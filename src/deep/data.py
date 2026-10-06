@@ -123,10 +123,10 @@ class DownscalingData:
     doy    : (T, 2) sin/cos of day of year
     """
 
-    def __init__(self, data_dir: str | Path, factor: int = 12, splits: dict | None = None,
+    def __init__(self, data_dir: str | Path, factor: int | None = None, splits: dict | None = None,
                  roll_days: int = 7, use_era5: bool = True):
         d = Path(data_dir)
-        self.factor = factor
+        self.factor = factor  # may be None; resolved from the data below
         self.splits = splits or DEFAULT_SPLITS
 
         imerg_ds = xr.open_dataset(d / "imerg_aligned_10km.nc").load()
@@ -140,6 +140,14 @@ class DownscalingData:
         self.fine = aorc.values.astype(np.float32)
         self.shape_c = p_c.shape[1:]
         self.shape_f = self.fine.shape[1:]
+        if self.factor is None:
+            # IMERG is 12, NASA POWER is 60; read it off the grids rather than
+            # making every caller pass it.
+            ratios = {f // c for f, c in zip(self.shape_f, self.shape_c)}
+            if len(ratios) != 1:
+                raise ValueError(f"non-uniform refinement {self.shape_c} -> {self.shape_f}")
+            self.factor = factor = ratios.pop()
+            print(f"[data] refinement factor inferred: {factor}")
         if self.shape_f != tuple(s * factor for s in self.shape_c):
             raise ValueError(f"grid mismatch: coarse {self.shape_c} x{factor} != fine {self.shape_f}")
 
@@ -269,6 +277,13 @@ class PatchDataset(Dataset):
         self.i_aspect_cos = n_coarse + STATIC_VARS.index("aspect_cos")
         self.idx = data.split_index(split)
         self.patch = patch
+        if patch % data.factor:
+            raise ValueError(
+                f"patch {patch} must be a multiple of the refinement factor "
+                f"{data.factor}: a fine patch has to cover a whole number of "
+                f"coarse cells. Nearest valid sizes: "
+                f"{patch // data.factor * data.factor} or "
+                f"{(patch // data.factor + 1) * data.factor}.")
         self.cp = patch // data.factor
         self.n = n_per_epoch
         self.wet_bias = wet_bias

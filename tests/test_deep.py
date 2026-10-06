@@ -213,3 +213,153 @@ def test_wet_area_ratio():
     obs = np.array([0.0, 0.5, 2.0, 5.0])
     assert wet_area_ratio(obs, obs, 1.0) == pytest.approx(1.0)
     assert wet_area_ratio(np.array([2.0, 2.0, 2.0, 2.0]), obs, 1.0) == pytest.approx(2.0)
+
+
+# --------------------------------------------------------------------------- #
+# Spectral loss
+#
+# The point of this term is that it penalises a quantity no per-cell loss can
+# see, and that it is the *same* quantity src.model_comparison reports -- so
+# the first test here pins it to the numpy scorer, and the rest check it
+# behaves like a loss.
+# --------------------------------------------------------------------------- #
+from src.deep.spectral import rapsd_torch, ratio_from_sums, rapsd_sums, spectral_loss  # noqa: E402
+from src.deep.train import masked_loss  # noqa: E402
+
+
+def _rain_like(s=96, seed=0):
+    """Smooth large scales plus convective speckle, as a rain field has."""
+    g = torch.Generator().manual_seed(seed)
+    coarse = torch.randn(1, 1, s // 12, s // 12, generator=g)
+    coarse = torch.nn.functional.interpolate(coarse, size=(s, s), mode="bilinear", align_corners=False)
+    speckle = torch.randn(s, s, generator=g).clamp(min=0) ** 2
+    return (coarse[0, 0] * 3 + speckle * 2).clamp(min=0) * 4
+
+
+def _blur(t, k):
+    f = torch.nn.functional.avg_pool2d(t, k, stride=k)
+    return torch.nn.functional.interpolate(f, scale_factor=k, mode="nearest")
+
+
+def test_torch_rapsd_matches_the_scored_numpy_definition():
+    field = _rain_like(96).double()
+    got = rapsd_torch(field[None]).numpy()[0]
+    _, want = rapsd(field.numpy())
+    ok = np.isfinite(want) & (want > 0)
+    assert got.shape == want.shape
+    assert np.allclose(got[ok], want[ok], rtol=1e-9)
+
+
+def test_spectral_loss_rises_with_blur_and_is_zero_for_a_perfect_match():
+    obs = _rain_like(96)[None, None]
+    mask = torch.ones_like(obs)
+    assert float(spectral_loss(obs.clone(), obs, mask)) == pytest.approx(0.0, abs=1e-10)
+    losses = [float(spectral_loss(_blur(obs, k), obs, mask)) for k in (2, 3, 6)]
+    assert losses == sorted(losses) and losses[0] > 0
+
+
+def test_spectral_loss_is_differentiable_and_tolerates_gaps():
+    obs = _rain_like(96)[None, None]
+    mask = torch.ones_like(obs)
+    mask[..., :20, :] = 0                       # a quarter of the patch invalid
+    pred = (obs * 0.5).requires_grad_(True)
+    loss = spectral_loss(pred, obs, mask)
+    loss.backward()
+    assert torch.isfinite(loss) and torch.isfinite(pred.grad).all()
+    assert float(pred.grad.norm()) > 0
+
+
+def test_dry_patches_contribute_nothing():
+    dry = torch.zeros(2, 1, 96, 96)
+    assert float(spectral_loss(dry.clone(), dry, torch.ones_like(dry))) == 0.0
+    assert rapsd_sums(dry.clone(), dry, torch.ones_like(dry)) is None
+
+
+def test_spectral_ratio_of_a_field_against_itself_is_one():
+    obs = _rain_like(96)[None, None]
+    mask = torch.ones_like(obs)
+    sp, so, n = rapsd_sums(obs.clone(), obs, mask)
+    assert ratio_from_sums(sp, so, n, 96) == pytest.approx(1.0, rel=1e-5)
+    sp, so, n = rapsd_sums(_blur(obs, 6), obs, mask)
+    assert ratio_from_sums(sp, so, n, 96) < 0.5      # a blurred field is short of power
+
+
+@pytest.mark.parametrize("kind", ["logmse", "mse", "hybrid", "quantile"])
+def test_zero_spectral_weight_leaves_the_existing_losses_identical(kind):
+    norm = LogNorm.fit(np.concatenate([np.array([0.0, 2.0, 30.0], np.float32), np.zeros(500, np.float32)]))
+    tgt = _rain_like(96)[None, None] * 0.1
+    pred = tgt + 0.3
+    mask = torch.ones_like(tgt)
+    before = float(masked_loss(pred, tgt, mask, norm, kind, 8.6))
+    after = float(masked_loss(pred, tgt, mask, norm, kind, 8.6, spectral_weight=0.0))
+    assert before == after
+
+
+@pytest.mark.parametrize("kind", ["logmse", "mse", "hybrid", "quantile"])
+def test_spectral_weight_penalises_a_blurry_field_on_top_of_any_kind(kind):
+    norm = LogNorm.fit(np.concatenate([np.array([0.0, 2.0, 30.0], np.float32), np.zeros(500, np.float32)]))
+    tgt = _rain_like(96)[None, None] * 0.1
+    mask = torch.ones_like(tgt)
+    blurry = _blur(tgt, 6)
+    plain = float(masked_loss(blurry, tgt, mask, norm, kind, 8.6))
+    with_spec = float(masked_loss(blurry, tgt, mask, norm, kind, 8.6, spectral_weight=0.01))
+    assert with_spec > plain
+
+
+# --------------------------------------------------------------------------- #
+# Spectrally adjusted MSE (Subich et al. 2025)
+#
+# AMSE claims to be a drop-in for MSE that removes the incentive to blur. Both
+# halves of that need testing: that it really is MSE (Parseval, zero iff equal,
+# sees a constant bias) and that it really removes the incentive (it accepts
+# incoherent detail that restores the spectrum, where MSE rejects it).
+# --------------------------------------------------------------------------- #
+from src.deep.spectral import amse, _binned_spectra  # noqa: E402
+
+_AMSE_NORM = lambda s: float(s) ** 4 * (3.0 / 8.0) ** 2
+
+
+def _wmse(a, b):
+    px, py, cr = _binned_spectra(a[:, 0], b[:, 0])
+    return float((px + py - 2 * cr).sum()) / _AMSE_NORM(a.shape[-1])
+
+
+def test_binned_spectra_satisfies_parseval():
+    x = _rain_like(96).double()[None, None]
+    y = (_rain_like(96, seed=4).double())[None, None]
+    px, py, cr = _binned_spectra(x[:, 0], y[:, 0])
+    s = 96
+    w = torch.hann_window(s, periodic=False, dtype=torch.float64)
+    w = w[None, :, None] * w[None, None, :]
+    direct = float(((((x - y)[:, 0]) * w) ** 2).sum()) * s * s
+    assert float((px + py - 2 * cr).sum()) == pytest.approx(direct, rel=1e-9)
+
+
+def test_amse_is_zero_only_for_a_match_and_sees_a_constant_bias():
+    o = _rain_like(96).double()[None, None]
+    m = torch.ones_like(o)
+    assert float(amse(o.clone(), o, m)) == pytest.approx(0.0, abs=1e-8)
+    # demeaning the patch would hide this entirely
+    assert float(amse(o + 1.0, o, m)) > 0.1
+
+
+def test_amse_charges_more_than_mse_for_a_blur():
+    o = _rain_like(96).double()[None, None]
+    m = torch.ones_like(o)
+    for k in (2, 3, 6):
+        b = _blur(o, k)
+        assert float(amse(b, o, m)) > _wmse(b, o)
+
+
+def test_amse_accepts_incoherent_detail_that_mse_rejects():
+    """The mechanism: restoring amplitude without adding skill."""
+    o = _rain_like(96).double()[None, None]
+    m = torch.ones_like(o)
+    base = _blur(o, 6)
+    n = _rain_like(96, seed=11).double()[None, None]
+    n = n - n.mean()
+    n = n - torch.nn.functional.avg_pool2d(n, 6).repeat_interleave(6, -1).repeat_interleave(6, -2)
+    cand = [(al, base + al * n) for al in (0.0, 0.5, 0.75, 1.0)]
+    a_best = min(cand, key=lambda c: float(amse(c[1], o, m)))[0]
+    m_best = min(cand, key=lambda c: _wmse(c[1], o))[0]
+    assert m_best == 0.0 and a_best > 0.0

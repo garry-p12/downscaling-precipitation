@@ -21,8 +21,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 
-from .utils import (LOG, GridPair, ensure_dirs, open_dataset, open_downscaled, save_json,  # noqa: E402
-                    upsample_bilinear, upsample_nearest)
+from .utils import (LOG, GridPair, ensure_dirs, evaluation_grids, open_dataset, open_downscaled,  # noqa: E402
+                    save_json, subset_box, upsample_bilinear, upsample_nearest)
 
 # --------------------------------------------------------------------------- #
 # Palette (dataviz reference palette; validated categorical order)
@@ -593,21 +593,32 @@ def validate(cfg: dict, grids: GridPair, downscaled_path: str | Path | None = No
     if len(times) != aorc.sizes["time"] or len(times) != imerg.sizes["time"]:
         raise ValueError("Validation inputs have inconsistent time axes")
 
-    v = Validator(cfg, grids)
+    eval_grids, eval_bbox = evaluation_grids(cfg, grids)
+    if eval_bbox:
+        LOG.info("scoring restricted to evaluation box %s (%s)", eval_bbox,
+                 (cfg.get("evaluation") or {}).get("name", "sub-domain"))
+    v = Validator(cfg, eval_grids)
     for t0 in range(0, len(times), chunk):
         sl = slice(t0, min(len(times), t0 + chunk))
-        obs = aorc.isel(time=sl).values.astype(np.float32)
-        preds = {
-            "ml": ml.isel(time=sl).values.astype(np.float32),
-            "bilinear": upsample_bilinear(imerg.isel(time=sl), grids).values.astype(np.float32),
-            "nearest": upsample_nearest(imerg.isel(time=sl), grids).values.astype(np.float32),
-        }
+        obs_da = aorc.isel(time=sl)
+        im_da = imerg.isel(time=sl)
+        bil = upsample_bilinear(im_da, grids)
+        nea = upsample_nearest(im_da, grids)
+        ml_da = ml.isel(time=sl)
+        if eval_bbox:
+            obs_da, bil, nea, ml_da = (subset_box(x, eval_bbox) for x in (obs_da, bil, nea, ml_da))
+        obs = obs_da.values.astype(np.float32)
+        preds = {"ml": ml_da.values.astype(np.float32),
+                 "bilinear": bil.values.astype(np.float32),
+                 "nearest": nea.values.astype(np.float32)}
         v.update(times[sl], obs, preds)
         LOG.info("  validated %s .. %s", str(times[sl][0])[:10], str(times[sl][-1])[:10])
 
-    res = v.finalize(slope=nlcd["slope"].values)
+    slope = subset_box(nlcd["slope"], eval_bbox) if eval_bbox else nlcd["slope"]
+    res = v.finalize(slope=slope.values)
     res["downscaled_file"] = str(downscaled_path)
     res["method"] = ml_all.attrs.get("method", cfg["upsampling"].get("method"))
+    res["evaluation_bbox"] = eval_bbox
     save_json(res, rdir / "validation_metrics.json")
 
     figures = [plot_spatial_comparison(v, rdir), plot_nse_maps(v, rdir), plot_example_day(v, rdir),

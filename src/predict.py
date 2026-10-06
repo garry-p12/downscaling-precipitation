@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 from .feature_engineering import (
+    source_prefix,
     FineFeatureBuilder,
     coarse_feature_names,
     coarse_features_10km,
@@ -120,8 +121,9 @@ def downscale_timeseries(cfg: dict, grids: GridPair, method: str | None = None) 
     feats = coarse_features_10km(imerg, nlcd, clim, grids, cfg)
     pred_c = predict_coarse(coarse_model, feats, coarse_feature_names(cfg))
     win = int(cfg["features"].get("rolling_days", 7))
-    coarse = xr.Dataset({"pred": pred_c, "imerg": feats["imerg"], f"imerg_roll{win}": feats[f"imerg_roll{win}"],
-                         "imerg_pct": feats["imerg_pct"]})
+    sp = source_prefix(cfg)
+    coarse = xr.Dataset({"pred": pred_c, sp: feats[sp], f"{sp}_roll{win}": feats[f"{sp}_roll{win}"],
+                         f"{sp}_pct": feats[f"{sp}_pct"]})
     fine_static = fine_features_1km(nlcd, grids)
     fine_model, fine_meta = (None, {})
     builder = None

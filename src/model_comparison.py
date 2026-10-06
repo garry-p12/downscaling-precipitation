@@ -30,8 +30,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from .deep.metrics import crps_ensemble, fss, mean_rapsd, spectral_ratio, wet_area_ratio  # noqa: E402
-from .utils import (LOG, grids_from_config, load_config, open_downscaled, save_json,  # noqa: E402
-                    setup_logging, upsample_bilinear, upsample_nearest)
+from .utils import (LOG, evaluation_grids, grids_from_config, load_config, open_downscaled,  # noqa: E402
+                    save_json, setup_logging, subset_box, upsample_bilinear, upsample_nearest)
 from .validation import INK, Contingency, SEQ_CMAP, Sums, _scalar  # noqa: E402
 
 PALETTE = {
@@ -41,7 +41,8 @@ PALETTE = {
 LABELS = {
     "aorc": "AORC (observed)", "nearest": "IMERG (nearest)", "bilinear": "Bilinear", "xgboost": "XGBoost 2-stage",
     "cnn": "CNN (U-Net)", "swin": "Swin transformer", "diffusion": "Diffusion (ens. mean)",
-    "diffusion_member": "Diffusion (1 member)",
+    "diffusion_member": "Diffusion (1 member)", "qm": "Quantile-mapped",
+    "cnn_spectral": "CNN + spectral",
 }
 FSS_THRESHOLDS = (1.0, 10.0, 30.0)
 FSS_SCALES = (1, 5, 15, 41)
@@ -61,7 +62,7 @@ def load_products(cfg: dict, grids, deep_dir: Path, val_slice: slice) -> dict:
         out["xgboost"] = open_downscaled(rdir, chunks={"time": 64}).sel(time=val_slice)
     except FileNotFoundError:
         LOG.warning("No tree product found in %s", rdir)
-    for name in ("cnn", "swin", "diffusion"):
+    for name in ("cnn", "cnn_spectral", "swin", "diffusion", "qm"):
         f = sorted(deep_dir.glob(f"{name}_1km_*.nc"))
         if not f:
             continue
@@ -84,6 +85,12 @@ def score(cfg: dict, deep_dir: Path, chunk: int = 32, spectra_days: int = 120) -
     names = list(products)
     LOG.info("Scoring %d products on %d test days: %s", len(names), aorc.sizes["time"], ", ".join(names))
 
+    eval_grids, eval_bbox = evaluation_grids(cfg, grids)
+    if eval_bbox:
+        LOG.info("scoring restricted to evaluation box %s", eval_bbox)
+        products = {k: subset_box(v, eval_bbox) for k, v in products.items()}
+        aorc = subset_box(aorc, eval_bbox)
+        grids = eval_grids
     ny, nx = grids.fine.shape
     glob = {n: Sums() for n in names}
     cell = {n: Sums((ny, nx)) for n in names}

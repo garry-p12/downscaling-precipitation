@@ -66,6 +66,12 @@ def cmd_train(cfg, grids, args):
     from src.train_model import train_coarse_stage, train_fine_stage
 
     stage = args.stage
+    if getattr(args, "seed", None) is not None:
+        # seed-repeat runs: vary subsample/colsample draws, keep everything else fixed
+        for k in ("coarse", "fine"):
+            cfg["model"][k].setdefault("params", {})["random_state"] = int(args.seed)
+        cfg["model"]["fine"]["seed"] = int(args.seed)
+        LOG.info("Tree seed override: random_state=%d", args.seed)
     if stage in ("both", "coarse"):
         meta = train_coarse_stage(cfg, grids)
         LOG.info("Stage 1 top features: %s", meta["top10_features"])
@@ -123,6 +129,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     t = sub.add_parser("train", help="train stage-1 (10 km) and stage-2 (1 km residual) models")
     t.add_argument("--stage", choices=["both", "coarse", "fine"], default="both")
+    t.add_argument("--seed", type=int, default=None,
+                   help="override the tree random_state, for seed-repeat runs")
     t.set_defaults(func=cmd_train)
 
     pr = sub.add_parser("predict", help="downscale the full timeline to 1 km")

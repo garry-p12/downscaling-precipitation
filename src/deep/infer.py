@@ -62,6 +62,9 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--amp", choices=["bf16", "off"], default="bf16")
+    ap.add_argument("--save-members", action="store_true",
+                    help="write every ensemble member, not just the first; needed for a "
+                         "probability-matched mean (file size scales with --members)")
     args = ap.parse_args(argv)
 
     device = get_device()
@@ -87,6 +90,8 @@ def main(argv=None):
     H, W = data.shape_f
     pred = np.empty((n, H, W), np.float32)
     member0 = np.empty((n, H, W), np.float32) if diff is not None else None
+    all_members = (np.empty((args.members, n, H, W), np.float32)
+                   if diff is not None and args.save_members else None)
     times = np.empty(n, dtype="datetime64[ns]")
     crps_sum = sprd_sum = cnt = 0.0
     k = 0
@@ -108,6 +113,8 @@ def main(argv=None):
                 mem = np.stack(mem)  # (M, b, H, W)
                 p = mem.mean(0)
                 member0[k:k + b] = mem[0]
+                if all_members is not None:
+                    all_members[:, k:k + b] = mem
                 o = data.norm.to_mm(tgt.numpy())
                 o = o[:, 0] if o.ndim == 4 else o
                 # tgt has had its NaNs zero-filled, so validity must come from
@@ -133,6 +140,13 @@ def main(argv=None):
     if member0 is not None:
         out["precipitation_member0"] = (("time", "lat", "lon"), member0,
                                         {"units": "mm/day", "long_name": "single diffusion realisation"})
+    if all_members is not None:
+        # every realisation, needed for a probability-matched mean: the pattern
+        # comes from the ensemble mean and the intensity distribution from the
+        # pooled members, so one member is not enough
+        out = out.assign_coords(member=np.arange(all_members.shape[0]))
+        out["precipitation_members"] = (("member", "time", "lat", "lon"), all_members,
+                                        {"units": "mm/day", "long_name": "all diffusion realisations"})
     out.attrs.update({"method": f"deep_{name}", "checkpoint": str(args.ckpt), "split": args.split, "eta": args.eta,
                       "dev_score": float(ck.get("dev_score", np.nan)), "members": args.members if diff else 1,
                       "ddim_steps": args.steps if diff else 0})

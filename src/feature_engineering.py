@@ -81,9 +81,20 @@ def load_imerg_structure(cfg: dict, time_index) -> xr.Dataset | None:
     return imerg_structure_features(ds.sel(time=time_index).load())
 
 
+def source_prefix(cfg: dict) -> str:
+    """Name of the coarse input, used to label its derived features.
+
+    Defaults to ``imerg`` so existing runs are untouched; a NASA POWER run sets
+    ``features.source_prefix: power`` and the feature names follow.
+    """
+    return str((cfg.get("features") or {}).get("source_prefix", "imerg"))
+
+
 def coarse_feature_names(cfg: dict) -> list[str]:
     fcfg = cfg["features"]
-    names = ["imerg", f"imerg_roll{fcfg.get('rolling_days', 7)}", "imerg_pct", f"imerg_nbr{fcfg.get('neighborhood', 3)}"]
+    sp = source_prefix(cfg)
+    names = [sp, f"{sp}_roll{fcfg.get('rolling_days', 7)}", f"{sp}_pct",
+             f"{sp}_nbr{fcfg.get('neighborhood', 3)}"]
     if fcfg.get("include_doy", True):
         names += ["doy_sin", "doy_cos"]
     names += ["dem_mean", "dem_std", "slope_mean", "imperv_mean"] + [f"lc_frac_{g}" for g in LC_GROUPS]
@@ -126,7 +137,8 @@ def fine_static_names() -> list[str]:
 
 def fine_feature_names(cfg: dict) -> list[str]:
     fcfg = cfg["features"]
-    names = ["pred_bl", "imerg_bl", f"imerg_roll{fcfg.get('rolling_days', 7)}_bl", "imerg_pct_bl"]
+    sp = source_prefix(cfg)
+    names = ["pred_bl", f"{sp}_bl", f"{sp}_roll{fcfg.get('rolling_days', 7)}_bl", f"{sp}_pct_bl"]
     if fcfg.get("include_doy", True):
         names += ["doy_sin", "doy_cos"]
     return names + fine_static_names()
@@ -252,11 +264,12 @@ def coarse_dynamic_features(imerg: xr.DataArray, clim: xr.DataArray, cfg: dict) 
     fcfg = cfg["features"]
     win = int(fcfg.get("rolling_days", 7))
     nb = int(fcfg.get("neighborhood", 3))
+    sp = source_prefix(cfg)
     da = imerg.transpose("time", "lat", "lon").astype(np.float32)
-    ds = xr.Dataset({"imerg": da})
-    ds[f"imerg_roll{win}"] = da.rolling(time=win, min_periods=1).mean().astype(np.float32)
-    ds["imerg_pct"] = (("time", "lat", "lon"), percentile_rank(da.values, clim.values))
-    ds[f"imerg_nbr{nb}"] = (("time", "lat", "lon"), nan_uniform_filter(da.values.astype(np.float64), nb).astype(np.float32))
+    ds = xr.Dataset({sp: da})
+    ds[f"{sp}_roll{win}"] = da.rolling(time=win, min_periods=1).mean().astype(np.float32)
+    ds[f"{sp}_pct"] = (("time", "lat", "lon"), percentile_rank(da.values, clim.values))
+    ds[f"{sp}_nbr{nb}"] = (("time", "lat", "lon"), nan_uniform_filter(da.values.astype(np.float64), nb).astype(np.float32))
     if fcfg.get("include_doy", True):
         doy = da["time"].dt.dayofyear.values.astype(np.float32)
         ang = 2 * np.pi * doy / 365.25
@@ -368,6 +381,7 @@ class FineFeatureBuilder:
     """
 
     def __init__(self, coarse: xr.Dataset, fine_static: xr.Dataset, grids: GridPair, cfg: dict):
+        self.prefix = source_prefix(cfg)
         self.coarse = coarse
         self.grids = grids
         self.cfg = cfg
@@ -381,11 +395,12 @@ class FineFeatureBuilder:
     def dynamic_fields(self, tslice: slice) -> dict[str, np.ndarray]:
         """Bilinearly upsampled coarse fields for a time slice -> (nt, ny, nx) arrays."""
         c = self.coarse.isel(time=tslice)
+        sp = self.prefix
         fields = {
             "pred_bl": upsample_bilinear(c["pred"], self.grids).values,
-            "imerg_bl": upsample_bilinear(c["imerg"], self.grids).values,
-            f"imerg_roll{self.win}_bl": upsample_bilinear(c[f"imerg_roll{self.win}"], self.grids).values,
-            "imerg_pct_bl": upsample_bilinear(c["imerg_pct"], self.grids, clip_zero=False).values,
+            f"{sp}_bl": upsample_bilinear(c[sp], self.grids).values,
+            f"{sp}_roll{self.win}_bl": upsample_bilinear(c[f"{sp}_roll{self.win}"], self.grids).values,
+            f"{sp}_pct_bl": upsample_bilinear(c[sp + "_pct"], self.grids, clip_zero=False).values,
         }
         if self.include_doy:
             doy = c["time"].dt.dayofyear.values.astype(np.float32)
@@ -411,26 +426,41 @@ class FineFeatureBuilder:
 
 
 def sample_fine_training_data(cfg: dict, grids: GridPair, coarse: xr.Dataset, fine_static: xr.Dataset,
-                              aorc_1km: xr.DataArray, time_slice: slice, n_samples: int, seed: int) -> tuple:
+                              aorc_1km: xr.DataArray, time_slice: slice, n_samples: int, seed: int,
+                              months: tuple[int, ...] | None = None) -> tuple:
     """Random (day, cell) samples of 1 km features and residual targets.
 
     Returns (X, y, base) where ``base`` is the bilinear stage-1 prediction so
     the caller can reconstruct absolute values (``y + base``).
+
+    ``months`` restricts sampling to a season. Orographic forcing is seasonal --
+    in Colorado the cool half-year is terrain-driven while summer is convective
+    -- so a residual stage can be worth shipping in one season and not the other.
     """
     rng = np.random.default_rng(seed)
     builder = FineFeatureBuilder(coarse.sel(time=time_slice), fine_static, grids, cfg)
     times = builder.coarse["time"].values
-    nt = len(times)
+    keep = np.ones(len(times), dtype=bool)
+    if months:
+        keep = np.isin(pd.DatetimeIndex(times).month, list(months))
+        LOG.info("Fine sampling restricted to months %s: %d of %d days",
+                 sorted(months), int(keep.sum()), len(times))
+    nt = int(keep.sum())
     n_cells = builder.static.shape[0]
-    per_day = int(np.ceil(n_samples / nt))
+    per_day = int(np.ceil(n_samples / max(nt, 1)))
     chunk = int(cfg["upsampling"].get("time_chunk", 32))
     Xs, ys, bases = [], [], []
     aorc_sel = aorc_1km.sel(time=time_slice)
-    for t0 in range(0, nt, chunk):
-        t1 = min(nt, t0 + chunk)
+    n_all = len(times)
+    for t0 in range(0, n_all, chunk):
+        t1 = min(n_all, t0 + chunk)
+        if not keep[t0:t1].any():
+            continue
         fields = builder.dynamic_fields(slice(t0, t1))
         obs = aorc_sel.isel(time=slice(t0, t1)).values.reshape(t1 - t0, -1)
         for d in range(t1 - t0):
+            if not keep[t0 + d]:
+                continue
             cells = rng.choice(n_cells, size=min(per_day, n_cells), replace=False)
             X = builder.matrix(fields, d, cells)
             base = fields["pred_bl"][d].reshape(-1)[cells]

@@ -203,6 +203,35 @@ def grids_from_config(cfg: dict) -> GridPair:
     return make_grids(d["bbox"], d.get("coarse_res_deg", 0.1), d.get("fine_factor", 12))
 
 
+def subset_box(da: xr.DataArray, bbox, eps: float = 1e-6) -> xr.DataArray:
+    """Restrict a (..., lat, lon) array to a lon/lat bounding box.
+
+    Cell *centres* lie in ``[min, max)`` on both grids, while ``.sel`` with a
+    slice is inclusive at both ends, so the upper edge is nudged inward by
+    ``eps``. Without this the subset is one row and one column too large and no
+    longer matches the grid built from the same bbox.
+    """
+    lon_min, lat_min, lon_max, lat_max = (float(v) for v in bbox)
+    return da.sel(lat=slice(lat_min - eps, lat_max - eps),
+                  lon=slice(lon_min - eps, lon_max - eps))
+
+
+def evaluation_grids(cfg: dict, grids: "GridPair") -> tuple["GridPair", list | None]:
+    """Grids for the scoring sub-box, plus the box itself.
+
+    When training spans a wider domain than we want to score on (for example
+    reaching west into terrain while the holdout stays over Austin),
+    ``evaluation.bbox`` restricts every metric to that sub-box so results stay
+    comparable with runs made on the smaller domain. Absent, scoring covers the
+    whole domain and this is a no-op.
+    """
+    bb = (cfg.get("evaluation") or {}).get("bbox")
+    if not bb:
+        return grids, None
+    d = cfg["domain"]
+    return make_grids(bb, d.get("coarse_res_deg", 0.1), d.get("fine_factor", 12)), list(bb)
+
+
 def assert_on_grid(da: xr.DataArray, grid: Grid, name: str = "array") -> None:
     """Raise if ``da``'s lat/lon do not match ``grid`` exactly (to 1e-5 deg)."""
     if da.sizes["lat"] != len(grid.lat) or da.sizes["lon"] != len(grid.lon):

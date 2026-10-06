@@ -11,6 +11,7 @@ import pandas as pd
 import xarray as xr
 
 from .feature_engineering import (
+    source_prefix,
     coarse_feature_names,
     coarse_features_10km,
     fine_feature_names,
@@ -35,19 +36,21 @@ def make_model(model_type: str = "xgb", hyperparams: dict | None = None, n_jobs:
         params = {**DEFAULT_XGB, **(hyperparams or {})}
         return xgb.XGBRegressor(
             tree_method="hist", n_jobs=n_jobs, objective=params.pop("objective", "reg:squarederror"),
-            early_stopping_rounds=early_stopping_rounds, eval_metric="rmse", random_state=42, **params,
+            early_stopping_rounds=early_stopping_rounds, eval_metric="rmse",
+            random_state=params.pop("random_state", 42), **params,
         )
     if model_type == "lgbm":
         import lightgbm as lgb
 
         params = {**DEFAULT_XGB, **(hyperparams or {})}
         params.pop("min_child_weight", None)
-        return lgb.LGBMRegressor(n_jobs=n_jobs, random_state=42, verbose=-1, **params)
+        return lgb.LGBMRegressor(n_jobs=n_jobs, random_state=params.pop("random_state", 42),
+                                 verbose=-1, **params)
     if model_type == "rf":
         from sklearn.ensemble import RandomForestRegressor
 
         params = {**DEFAULT_RF, **(hyperparams or {})}
-        return RandomForestRegressor(n_jobs=n_jobs, random_state=42, **params)
+        return RandomForestRegressor(n_jobs=n_jobs, random_state=params.pop("random_state", 42), **params)
     raise ValueError(f"Unknown model_type {model_type}")
 
 
@@ -161,7 +164,9 @@ def train_coarse_stage(cfg: dict, grids: GridPair) -> dict:
 
     pred_val = np.clip(model.predict(X_val), 0, None)
     pred_tr = np.clip(model.predict(X_train), 0, None)
-    imerg_col = names.index("imerg")
+    # Column holding the raw coarse retrieval, for the "model vs raw input"
+    # reference. Named for the source, so POWER runs look it up as "power".
+    imerg_col = names.index(source_prefix(cfg))
     metrics = {
         "train_rmse": rmse(pred_tr, y_train),
         "val_rmse": rmse(pred_val, y_val),
@@ -211,8 +216,9 @@ def compute_coarse_predictions(cfg: dict, grids: GridPair, model) -> xr.Dataset:
     feats = coarse_features_10km(imerg, nlcd, clim, grids, cfg)
     pred = predict_coarse(model, feats, coarse_feature_names(cfg))
     win = int(cfg["features"].get("rolling_days", 7))
-    out = xr.Dataset({"pred": pred, "imerg": feats["imerg"], f"imerg_roll{win}": feats[f"imerg_roll{win}"],
-                      "imerg_pct": feats["imerg_pct"]})
+    sp = source_prefix(cfg)
+    out = xr.Dataset({"pred": pred, sp: feats[sp], f"{sp}_roll{win}": feats[f"{sp}_roll{win}"],
+                      f"{sp}_pct": feats[f"{sp}_pct"]})
     return out, nlcd
 
 
@@ -228,12 +234,13 @@ def train_fine_stage(cfg: dict, grids: GridPair, coarse_model=None) -> dict:
     aorc = open_dataset(proc / "aorc_aligned_1km.nc", chunks={"time": 64})["precip"]
 
     seed = int(fcfg.get("seed", 42))
+    months = tuple(fcfg.get("months") or ())
     X_tr, y_tr, base_tr = sample_fine_training_data(
         cfg, grids, coarse, fine_static, aorc, slice(tcfg["train_start"], tcfg["train_end"]),
-        int(fcfg.get("max_samples", 3_000_000)), seed)
+        int(fcfg.get("max_samples", 3_000_000)), seed, months=months or None)
     X_va, y_va, base_va = sample_fine_training_data(
         cfg, grids, coarse, fine_static, aorc, slice(tcfg["val_start"], tcfg["val_end"]),
-        int(fcfg.get("val_samples", 500_000)), seed + 1)
+        int(fcfg.get("val_samples", 500_000)), seed + 1, months=months or None)
     names = fine_feature_names(cfg)
     model_type = fcfg.get("type", "xgb")
     params = fcfg.get("params" if model_type != "rf" else "rf_params", {})
@@ -273,6 +280,7 @@ def train_fine_stage(cfg: dict, grids: GridPair, coarse_model=None) -> dict:
     imp = get_feature_importance(model, names)
     meta = {
         "stage": "fine_1km_residual",
+        "months": list(months) if months else None,
         "recommended_method": recommended,
         "model_type": model_type,
         "hyperparams": params,
