@@ -27,6 +27,7 @@ from torch.utils.data import DataLoader
 from .data import DownscalingData, FullFieldDataset
 from .diffusion import ResidualDiffusion
 from .models import build_model
+from .distributional import mean_mm as bg_mean, exceedance as bg_exceed
 from .train import get_device
 
 
@@ -62,6 +63,8 @@ def main(argv=None):
     ap.add_argument("--batch", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--amp", choices=["bf16", "off"], default="bf16")
+    ap.add_argument("--prob-thresh", type=float, default=30.0,
+                    help="threshold in mm for the exceedance field written by --model cnn_bg")
     ap.add_argument("--save-members", action="store_true",
                     help="write every ensemble member, not just the first; needed for a "
                          "probability-matched mean (file size scales with --members)")
@@ -90,6 +93,10 @@ def main(argv=None):
     H, W = data.shape_f
     pred = np.empty((n, H, W), np.float32)
     member0 = np.empty((n, H, W), np.float32) if diff is not None else None
+    # A distributional model also emits P(Y >= thresh). That field, not the
+    # mean, is what makes detection tunable, so it has to survive to disk.
+    is_bg = ck["model"] == "cnn_bg"
+    prob = np.empty((n, H, W), np.float32) if is_bg else None
     all_members = (np.empty((args.members, n, H, W), np.float32)
                    if diff is not None and args.save_members else None)
     times = np.empty(n, dtype="datetime64[ns]")
@@ -99,7 +106,13 @@ def main(argv=None):
         cond, coarse = cond.to(device), coarse.to(device)
         b = cond.shape[0]
         with torch.no_grad(), torch.autocast("cuda", dtype=amp_dtype, enabled=device.type == "cuda"):
-            if diff is None:
+            if is_bg:
+                lp, r, lk, base = model(cond, coarse)
+                base_mm = data.norm.to_mm(base.float())
+                p = bg_mean(lp.float(), r.float(), lk.float(), base_mm)[:, 0].cpu().numpy()
+                prob[k:k + b] = bg_exceed(lp.float(), r.float(), lk.float(), base_mm,
+                                          args.prob_thresh)[:, 0].cpu().numpy()
+            elif diff is None:
                 u = model(cond, coarse).float()
                 p = data.norm.to_mm(u)[:, 0].cpu().numpy()
             else:
@@ -137,6 +150,10 @@ def main(argv=None):
                            {"units": "mm/day", "long_name": f"{name} downscaled precipitation"})},
         coords=coords,
     )
+    if prob is not None:
+        out["exceedance_prob"] = (("time", "lat", "lon"), prob,
+                                  {"units": "1", "threshold_mm": float(args.prob_thresh),
+                                   "long_name": f"P(precip >= {args.prob_thresh:g} mm)"})
     if member0 is not None:
         out["precipitation_member0"] = (("time", "lat", "lon"), member0,
                                         {"units": "mm/day", "long_name": "single diffusion realisation"})
