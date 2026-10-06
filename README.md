@@ -105,7 +105,12 @@ src/predict.py                 stage-1 prediction, upsampling methods, full-time
 src/validation.py              streaming metrics, baselines, success criteria, figures
 src/synthetic.py               synthetic raw data generator (tests / dry runs)
 src/deep/                      CNN / Swin transformer / residual-diffusion downscalers
+src/deep/spectral.py           differentiable spectral penalty -- trains the texture, not just scores it
 src/model_comparison.py        scores every product together (spectra, FSS, CRPS, ...)
+src/publication_figures.py     journal-grade figures (vector PDF + 600 dpi PNG) -> results/figures/publication
+scripts/gen_web_tiles.py       Austin field tiles for the web viewer
+scripts/gen_domain_tiles.py    the same for any domain/config
+web/                           Next.js viewer: three studies, nine layers, per-day metrics
 slurm/                         TACC Vista job scripts (GH200)
 scripts/vista_sync.sh          push code/data to the cluster, pull results back
 tests/                         pytest suite
@@ -123,6 +128,12 @@ results/                       downscaled NetCDF, validation_metrics.json, valid
 * `results/validation_metrics.json` — overall / by-intensity / seasonal /
   quarterly / per-cell statistics for ML, bilinear and nearest, the comparison
   table from plan §5.2 and the success criteria from plan §7.
+* `results/comparison/` and `results/power/comparison/` — every product scored
+  together on each coarse input (`model_comparison.{json,csv,md}` plus spectra
+  and FSS plots).
+* `results/spectral/` — the spectral-penalty study: weight sweep, three-seed
+  repeats, 30k-step runs and both scored comparison tables.
+* `results/figures/publication/` — F1–F8, the figures used in the paper.
 * Figures: bias/RMSE/NSE maps, wettest-day comparison, quarterly spatial
   correlation, Q-Q plot, seasonal metrics, time series at the configured
   cities, feature importance.
@@ -143,6 +154,14 @@ and `results/validation_metrics.json` hold the complete numbers.
 | Diffusion (ens. mean) | 4.807 | 1.493 | −0.113 | 0.673 | 0.746 | **1.050** | 0.511 | 0.248 |
 | Diffusion (1 member) | 5.483 | 1.668 | −0.132 | 0.574 | 0.731 | 1.668 | 0.467 | **0.840** |
 
+Trained later, against its own matched control rather than the rows above (plain
+`--select rmse`, 6k steps, so not comparable with the table):
+
+| Product | RMSE | spectral ratio | POD>30mm |
+|---|---|---|---|
+| CNN, matched control | 4.654 | 0.303 | 0.540 |
+| **CNN + spectral penalty** | **4.635** | **1.260** | 0.533 |
+
 What this says:
 
 * **No product wins everything, and that is the result.** XGBoost takes accuracy
@@ -151,6 +170,13 @@ What this says:
   diffusion ensemble takes the probabilistic score (CRPS 1.050, 28 % better than
   any deterministic field) and its single member is the only one with realistic
   texture (84 % of observed sub-10 km variance).
+* **Realistic texture does not require a generative model.** Adding a
+  differentiable penalty on the log power spectrum below 10 km
+  (`--spectral-weight 0.01`) takes retained fine-scale variance from 0.303 to
+  1.260 with RMSE unchanged inside seed noise — a three-seed paired test puts
+  the difference at +0.004 ± 0.021 mm day⁻¹. On the 50 km POWER input the same
+  change gives 0.167 → 1.281 for 0.68 % of RMSE, and improves POD, KGE and FSS
+  as well. See [docs/METRICS.md](docs/METRICS.md) and §4.8 of the paper.
 * **Gains came from information, never architecture.** Four model families span
   4.583–4.807. What moved the numbers was ERA5 predictors (−2.2 %), a 4.6×
   longer training record (−2.0 %) and sub-daily structure from the IMERG daily
