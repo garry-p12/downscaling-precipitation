@@ -840,20 +840,32 @@ all against the same matched control:
 | **+ spectral + heavy ×3** | **4.654 ± 0.007** | **1.027 ± 0.100** | **0.594 ± 0.006** | 0.323 | **0.463 ± 0.001** | 0.878 | **0.661 ± 0.001** |
 | + heavy-*conditioned* spectral | 4.638 ± 0.019 | 1.893 ± 0.153 | 0.539 ± 0.011 | 0.280 | 0.446 ± 0.006 | 0.749 | 0.646 |
 
-Paired by seed against the control:
+Paired by seed against the control. The combined configuration was subsequently
+extended to **five seeds**; the other two arms remain at three:
 
 | | ΔRMSE | ΔPOD | ΔCSI |
 |---|---|---|---|
-| + spectral | +0.0198 ± 0.0127 (*t* = 2.70) | −0.0096 ± 0.0062 (*t* = −2.68) | −0.0043 (*t* = −1.68) |
-| **+ spectral + heavy ×3** | **−0.0014 ± 0.0101 (*t* = −0.23)** | **+0.0632 ± 0.0096 (*t* = 11.41)** | **+0.0214 ± 0.0059 (*t* = 6.32)** |
-| + heavy-conditioned | −0.0168 ± 0.0126 (*t* = −2.31) | +0.0083 ± 0.0137 (*t* = 1.05) | +0.0042 (*t* = 1.40) |
+| + spectral *(n=3)* | +0.0198 ± 0.0127 (*t* = 2.70) | −0.0096 ± 0.0062 (*t* = −2.68) | −0.0043 (*t* = −1.68) |
+| **+ spectral + heavy ×3 *(n=5)*** | **−0.0035 ± 0.0200 (*t* = −0.39)** | **+0.0646 ± 0.0074 (*t* = 19.39)** | **+0.0214 ± 0.0060 (*t* = 8.03)** |
+| + heavy-conditioned *(n=3)* | −0.0168 ± 0.0126 (*t* = −2.31) | +0.0083 ± 0.0137 (*t* = 1.05) | +0.0042 (*t* = 1.40) |
 
 **The combination is the result of this section.** At no RMSE cost whatever
-(*t* = −0.23) it delivers correct texture — 1.027, the closest to 1.0 of any
-configuration in the study, trained or post-hoc — together with **+0.063 POD at
-*t* = 11.4** and +0.021 CSI at *t* = 6.3. A day-block bootstrap over the 731 test days,
-which respects the clustering of heavy cells into a few dozen convective days, puts
-ΔPOD at **[+0.031, +0.075]** and ΔCSI at **[+0.0002, +0.036]**; both exclude zero.
+(*t* = −0.39) it delivers correct texture — 1.007 ± 0.105 over five seeds, the closest
+to 1.0 of any configuration in the study, trained or post-hoc — together with
+**+0.065 POD at *t* = 19.4** and +0.021 CSI at *t* = 8.0. POD rises in **all five
+seeds**; ΔRMSE changes sign across them, which is what an absent effect looks like.
+A day-block bootstrap over the 731 test days, which respects the clustering of heavy
+cells into a few dozen convective days, puts ΔPOD at **[+0.031, +0.075]** and ΔCSI at
+**[+0.0002, +0.036]**; both exclude zero.
+
+**How large an effect has to be before we believe it.** Five control runs differing
+only in seed span RMSE 4.6380–4.6814 (sd **0.0163**) and POD 0.5189–0.5421
+(sd **0.0097**). Two *controls* compared against each other with the day-block
+bootstrap give ΔRMSE −0.043 and ΔPOD +0.016, **both with intervals excluding zero** —
+entirely from the seed. The bootstrap resamples days, not initialisations, so on its
+own it will certify seed noise. Every difference reported in this section is therefore
+paired within seed, and read against that spread: the combined configuration's ΔPOD is
+6.6× the control POD sd, while its ΔRMSE is a fifth of the control RMSE sd.
 
 Detection under this configuration is also unusually stable: POD varies by 0.006 across
 seeds and CSI by 0.001, against a control whose *texture* alone varies by 0.083.
@@ -864,6 +876,23 @@ detection gain is not significant. Restricting the spectral term to heavy-bearin
 starves it of the light-rain samples that anchor the spectrum. It does buy RMSE
 (−0.0168, *t* = −2.31), so it is a trade, not a failure on every axis — but not the
 trade it was built to make.
+
+**Two cheaper routes to the same place, both null.** If the gain were really about
+tolerating displacement, a neighbourhood loss should reach it without a spectral term.
+Multiscale MSE on average-pooled fields at 1/3/9/27 cells gives the best RMSE in the
+set (4.637) and **moves nothing else**: ΔPOD +0.0025, texture 0.287 → 0.356. Added on
+top of the combined configuration it reproduces that configuration's POD to four
+decimal places (+0.0001). Pooling tolerates displacement; it does not ask for structure.
+
+The second route was selection rather than loss: keep the best-RMSE checkpoint *among
+those already above a texture floor of 0.8* (`--select rmse_spec --spec-floor 0.8`).
+At one seed this was the best RMSE/POD pair in the study (4.642, POD 0.610, both better
+than the combined configuration at that seed). **Across five seeds it is a null**:
+ΔPOD +0.0025 (*t* = 0.6), ΔRMSE −0.0020 (*t* = −0.4). At two of the five the floor
+never binds — the best-RMSE checkpoint already cleared it, so the selected weights, and
+hence every score, are identical. The +0.018 at seed 0 was inside the ±0.0097 control
+spread, and is the clearest illustration in this study of why the preceding paragraph's
+discipline is not optional.
 
 **Post-hoc: quantile mapping.** The *intensity distribution* a squared-error fit
 compresses needs no retraining. A map fitted on the dev year and applied to test is
@@ -892,13 +921,42 @@ to 1.90, without improving CSI. They are orthogonal in what they touch — one t
 one their spatial arrangement — but a field that already carries the right fine-scale
 variance does not want its tail inflated as well.
 
+**Does any of this survive terrain?** The combined configuration was repeated on the
+Colorado Front Range, three seeds, paired within seed:
+
+| | RMSE | spectral ratio | KGE | POD@14.5 mm | freq. bias |
+|---|---|---|---|---|---|
+| control (MSE) | 2.978 ± 0.003 | 0.351 ± 0.019 | 0.329 ± 0.011 | 0.127 | 0.146 |
+| **+ spectral + heavy ×3** | **2.938 ± 0.020** | **1.160 ± 0.189** | **0.374 ± 0.017** | **0.159** | 0.191 |
+
+**Texture replicates and is no longer a flat-terrain result**: 0.351 → 1.160, a factor
+of 3.3 against Austin's 3.0. RMSE improves in all three seeds (−0.040; *t* = −3.1,
+short of the *t* = 4.30 that three seeds demand, but one-signed), where in Austin it was
+null — so the objective is not merely free in terrain, it may be favourable. KGE +0.046.
+
+**Detection needed a threshold correction before it could be read at all.** At 30 mm the
+Colorado control scores POD 0.013 at a frequency bias of **0.039** — it forecasts the
+event 4 % as often as it occurs, and POD, CSI and FSS all collapse into a corner that
+describes the threshold rather than the model. 30 mm is **6.7× rarer** over the Front
+Range than over Austin. Rescoring at the depth that reproduces Austin's exceedance rate
+(**14.50 mm**, Colorado's 98th percentile) makes the comparison meaningful, and the gain
+holds: ΔPOD **+0.0317** (*t* = 4.35), ΔCSI **+0.0290** (*t* = 4.39), about half the
+Austin effect in the same direction.
+
+**But the correction does not rescue the regime, and that is itself a result.** Even at
+matched exceedance the Colorado frequency bias is 0.15 against Austin's 0.73. Both
+configurations under-forecast heavy rain in terrain by roughly fivefold, so the
+cross-domain claim is that the objective *helps* where detection is poor, not that it
+makes detection good there. We report detection in this domain at the matched threshold
+throughout, and the score files record the threshold they were produced with.
+
 **A menu, not a winner.**
 
 | if the decision needs… | use | evidence |
 |---|---|---|
 | lowest error | XGBoost | RMSE 4.583 |
 | heavy-rain detection | XGBoost + quantile map | CSI 0.488, KGE 0.809 |
-| structure *and* detection | **spectral + heavy ×3** | texture 1.027, POD 0.594, no RMSE cost |
+| structure *and* detection | **spectral + heavy ×3** | texture 1.007, POD 0.597, no RMSE cost, 5 seeds + 3 in terrain |
 | a realistic field | PM mean of the diffusion ensemble | texture 1.055, no training |
 | a calibrated distribution | diffusion ensemble | CRPS 1.050, 28 % better than any deterministic product |
 

@@ -37,8 +37,15 @@ def _fractions(mask: np.ndarray, scale: int) -> np.ndarray:
     return m if scale == 1 else uniform_filter(m, size=scale, mode="constant")
 
 
-def accumulate(pred: np.ndarray, obs: np.ndarray) -> dict:
-    """Per-day quantities, so a bootstrap can resample days without re-reading."""
+def accumulate(pred: np.ndarray, obs: np.ndarray, heavy: float = HEAVY) -> dict:
+    """Per-day quantities, so a bootstrap can resample days without re-reading.
+
+    ``heavy`` is the detection threshold in mm. 30 is the Austin convention, but
+    it is not portable: on the Colorado Front Range the same 30 mm is reached so
+    rarely that a model scores a frequency bias of 0.04, and POD/CSI/FSS all
+    collapse into a corner where they say nothing about the model. Pass a
+    threshold matched on *exceedance rate* to compare detection across domains.
+    """
     n_days = pred.shape[0]
     out = {k: np.zeros(n_days) for k in ("sse", "n", "hits", "misses", "fa",
                                          "sp", "so", "spp", "soo", "spo")}
@@ -57,7 +64,7 @@ def accumulate(pred: np.ndarray, obs: np.ndarray) -> dict:
         out["sp"][i] = p[ok].sum(); out["so"][i] = o[ok].sum()
         out["spp"][i] = (p[ok] ** 2).sum(); out["soo"][i] = (o[ok] ** 2).sum()
         out["spo"][i] = (p[ok] * o[ok]).sum()
-        pe, oe = (p >= HEAVY) & ok, (o >= HEAVY) & ok
+        pe, oe = (p >= heavy) & ok, (o >= heavy) & ok
         out["hits"][i] = (pe & oe).sum()
         out["misses"][i] = (~pe & oe).sum()
         out["fa"][i] = (pe & ~oe).sum()
@@ -114,6 +121,11 @@ def main(argv=None):
     ap.add_argument("--product", action="append", default=[], metavar="NAME=PATH")
     ap.add_argument("--control", default=None, metavar="NAME=PATH")
     ap.add_argument("--n-boot", type=int, default=1000)
+    ap.add_argument("--heavy", type=float, default=HEAVY,
+                    help=f"detection threshold in mm (default {HEAVY:g}); see accumulate()")
+    ap.add_argument("--match-exceedance", type=float, default=None, metavar="RATE",
+                    help="ignore --heavy and pick the threshold whose observed exceedance "
+                         "rate equals RATE, so detection means the same thing across domains")
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
     setup_logging()
@@ -129,6 +141,19 @@ def main(argv=None):
     o = obs.values.astype(np.float32)
     print(f"reference: {o.shape[0]} days, {o.shape[1]} x {o.shape[2]}", flush=True)
 
+    heavy = a.heavy
+    fin = o[np.isfinite(o)]
+    if a.match_exceedance is not None:
+        # The quantile of the threshold, not the threshold itself, is what makes
+        # "POD at heavy rain" comparable between a convective and an orographic
+        # domain. Austin's 30 mm sits at some exceedance rate; we ask Colorado
+        # for the depth at that same rate.
+        heavy = float(np.quantile(fin, 1.0 - a.match_exceedance))
+        print(f"matched exceedance {a.match_exceedance:.3e} -> threshold {heavy:.2f} mm", flush=True)
+    rate = float((fin >= heavy).mean())
+    print(f"detection threshold {heavy:.2f} mm; observed exceedance {rate:.3e} "
+          f"({int((fin >= heavy).sum())} of {fin.size} cells)", flush=True)
+
     items = ([a.control] if a.control else []) + a.product
     res, accs = {}, {}
     for spec in items:
@@ -136,7 +161,7 @@ def main(argv=None):
         da = xr.open_dataset(path)["precipitation"].sel(time=sl)
         if box:
             da = subset_box(da, box)
-        acc = accumulate(da.values.astype(np.float32), o)
+        acc = accumulate(da.values.astype(np.float32), o, heavy)
         accs[name] = acc
         rec = summarise(acc)
         if acc["_spec"]:
@@ -166,6 +191,12 @@ def main(argv=None):
                 k: {"mean": float(np.mean(v)),
                     "ci": [float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5))]}
                 for k, v in d.items()}
+
+    # A score file that does not carry its own threshold invites exactly the
+    # mistake this flag exists to fix: comparing a 30 mm POD against a matched
+    # one and reading the difference as a model effect.
+    res["_meta"] = {"heavy_mm": heavy, "observed_exceedance": rate,
+                    "config": a.config, "n_boot": a.n_boot}
 
     dest = Path(a.out) if a.out else Path("results/variant_scores.json")
     dest.parent.mkdir(parents=True, exist_ok=True)

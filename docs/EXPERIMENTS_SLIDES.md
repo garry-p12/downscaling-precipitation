@@ -16,7 +16,8 @@ title: "New experiments and results"
      Numbers: results/seedtest_scores.json (Austin seeds 0-2),
      results/screens_scores.json (Austin seeds 3-4 and the seed-0 variants),
      results/specfloor_seeds.json (texture floor, seeds 1-4),
-     results/colorado_deep_scores.json (Colorado, 3 seeds).
+     results/co_rescore_matched.json (Colorado, 3 seeds, 14.50 mm),
+     results/co_rescore_30mm.json (same, 30 mm, kept as the regression check).
      731 test days per domain, all scored with src/score_variants.py. -->
 
 ## What we tested since the last round
@@ -28,7 +29,7 @@ Four questions, all on the Austin domain, all scored on the 2019–20 test set.
 | **1** | Does the combined configuration hold at more seeds? | **yes** — n = 3 → 5, effect unchanged |
 | **2** | Is the neighbourhood loss an alternative route to texture? | **no** — null on every axis |
 | **3** | Can *checkpoint selection* buy structure the loss cannot? | **no** — looked real at n = 1, null at n = 5 |
-| **4** | Does the structure result survive complex terrain? | **yes** for texture; detection is unmeasurable there |
+| **4** | Does the structure result survive complex terrain? | **yes** — texture 3.3×, detection +0.032 at a matched threshold |
 | **5** | Were our significance claims sound? | **no** — one pairing error, now fixed |
 
 Questions 3 and 5 are the useful ones. Question 5 was not planned: it came out
@@ -98,25 +99,28 @@ it helps as often as it hurts.
 
 ---
 
-## 4. Complex terrain: texture replicates, detection cannot be read
+## 4. Complex terrain: texture replicates, detection is poor
 
-Colorado Front Range, same contrast, 3 seeds, paired within seed.
+Colorado Front Range, 3 seeds, paired within seed. Detection at **14.50 mm** —
+the depth that reproduces Austin's 30 mm *exceedance rate* (2.0 %).
 
 | | RMSE | spectral ratio | KGE | POD | freq. bias |
 |---|---|---|---|---|---|
-| control | 2.978 ± 0.003 | 0.351 ± 0.019 | 0.329 ± 0.011 | 0.013 | **0.039** |
-| **E** | **2.938 ± 0.020** | **1.160 ± 0.189** | **0.374 ± 0.017** | 0.042 | **0.106** |
+| control | 2.978 ± 0.003 | 0.351 ± 0.019 | 0.329 ± 0.011 | 0.127 | **0.146** |
+| **E** | **2.938 ± 0.020** | **1.160 ± 0.189** | **0.374 ± 0.017** | **0.159** | 0.191 |
 
-**What replicates:** texture 0.35 → 1.16, the same ~3× as Austin. RMSE improves
-in all three seeds (−0.040) — in Austin it was null, so E is *not* worse here.
-KGE +0.046.
+**Texture replicates: 0.35 → 1.16, a factor of 3.3** against Austin's 3.0 — no
+longer a flat-terrain result. RMSE improves in all 3 seeds (−0.040), where Austin
+was null. ΔPOD **+0.032** (t = 4.35), ΔCSI **+0.029** — half the Austin effect,
+same direction.
 
-**What we cannot claim:** POD. A frequency bias of **0.039** means the control
-forecasts ≥30 mm **4 % as often as it occurs**. POD rises 0.013 → 0.042 and the
-t-test likes it, but both numbers sit in a degenerate corner of the metric.
+**Why the threshold had to change:** at 30 mm the control scores POD 0.013 at a
+frequency bias of **0.039**. 30 mm is **6.7× rarer** here than over Austin.
 
-> **30 mm is the wrong threshold for this domain.** The detection question needs
-> re-running at a Colorado-appropriate threshold before it means anything.
+> **But the fix does not rescue the regime.** At matched exceedance the frequency
+> bias is still **0.15**, against Austin's **0.73**. Both models under-forecast
+> heavy rain in terrain by ~5×. The objective *helps* where detection is poor;
+> it does not make detection good.
 
 ---
 
@@ -170,10 +174,11 @@ at seed 0 was inside a ±0.0097 control spread, and four more seeds took it to
 
 | question | why it is not answered |
 |---|---|
-| Does E improve **detection** in complex terrain? | 30 mm is unreachable there — freq. bias 0.04 |
+| Why do terrain models under-forecast heavy rain **5×**? | freq. bias 0.15 vs Austin 0.73, at matched exceedance |
 | Does E's **RMSE gain** in Colorado hold? | 3 seeds, all negative, t = −3.1 vs crit 4.30 |
 | Is the texture gain worth anything **operationally**? | no decision metric tested, only scores |
 
 **One domain caveat remains.** Austin has **0.000 cells above 5° slope**;
-Colorado has 0.255. The texture effect now has both, at ~3× each — that part
-is no longer a flat-terrain result. The detection effect is still Austin-only.
+Colorado has 0.255. The texture effect now has both, at ~3× each, and the
+detection effect has both once the threshold is matched on exceedance rather
+than on millimetres.
