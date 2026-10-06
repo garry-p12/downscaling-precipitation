@@ -110,7 +110,12 @@ def nll(logit_p, r, log_k, base_mm, obs_mm, mask, wet_mm: float = 0.1,
     if heavy_mm > 0 and heavy_weight != 1.0:
         w = w * torch.where(obs_mm >= heavy_mm, heavy_weight, 1.0)
 
-    occ = F.binary_cross_entropy(p.clamp(EPS, 1 - EPS), wet.float(), reduction="none")
+    # with_logits rather than BCE on the sigmoid: the fused form is the only one
+    # autocast allows (plain binary_cross_entropy raises "unsafe to autocast"),
+    # and it is the numerically stable one, since it folds the log and the
+    # sigmoid into a single log-sum-exp instead of taking log of a clamped
+    # probability.
+    occ = F.binary_cross_entropy_with_logits(logit_p, wet.float(), reduction="none")
     occ = (w * occ).sum() / w.sum().clamp(min=1.0)
 
     # Gamma(mean=mu, shape=k):  -log f = k*log(mu/k) + lgamma(k) - (k-1)log y + y*k/mu
