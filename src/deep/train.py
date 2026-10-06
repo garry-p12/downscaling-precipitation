@@ -24,6 +24,8 @@ from .data import DownscalingData, FullFieldDataset, PatchDataset
 from .diffusion import ResidualDiffusion
 from .spectral import amse, rapsd_sums, ratio_from_sums, spectral_loss
 from .models import Downscaler, build_model, count_params
+from .distributional import (nll as bg_nll, mean_mm as bg_mean, exceedance as bg_exceed,
+                             calibrate_operating_point)
 
 
 def get_device() -> torch.device:
@@ -186,7 +188,14 @@ def eval_deterministic(model, data, loader, device, amp_dtype, heavy_mm: float =
         cond, coarse, tgt, mask = [x.to(device, non_blocking=True) for x in (cond, coarse, tgt, mask)]
         with torch.autocast("cuda", dtype=amp_dtype, enabled=device.type == "cuda"):
             u = model(cond, coarse)
-        p = data.norm.to_mm(u.float())
+        if isinstance(u, tuple):
+            # Distributional head: score the unconditional mean E[Y] = p * mu,
+            # so RMSE stays comparable with every deterministic product here.
+            # The exceedance probability is a separate product, not a field.
+            lp, r, lk, base = (x.float() for x in u)
+            p = bg_mean(lp, r, lk, data.norm.to_mm(base))
+        else:
+            p = data.norm.to_mm(u.float())
         o = data.norm.to_mm(tgt.float())
         d = (p - o) * mask
         se += float((d**2).sum())
@@ -233,7 +242,9 @@ def eval_diffusion_loss(net, diff, mean_model, data, loader, device, amp_dtype, 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", choices=["cnn", "swin", "diffusion"], required=True)
+    ap.add_argument("--model", choices=["cnn", "swin", "diffusion", "cnn_bg"], required=True)
+    ap.add_argument("--bg-wet-mm", type=float, default=0.1,
+                    help="rain/no-rain cut for the Bernoulli term of --model cnn_bg")
     ap.add_argument("--data-dir", default="data/processed")
     ap.add_argument("--out", default="models/deep")
     ap.add_argument("--patch", type=int, default=96)
@@ -343,7 +354,8 @@ def main(argv=None):
     print(f"[data] dev evaluation on {len(dev_idx)} days", flush=True)
 
     factor = data.factor
-    if args.model in ("cnn", "swin"):
+    is_bg = args.model == "cnn_bg"
+    if args.model in ("cnn", "swin", "cnn_bg"):
         model = build_model(args.model, data.n_cond, factor, base=args.base, dim=args.dim,
                             depths=(args.depth,) * args.groups, heads=args.heads).to(device)
         if args.init_ckpt:
@@ -389,7 +401,8 @@ def main(argv=None):
     print(f"[model] {args.model}: {count_params(model)/1e6:.2f} M parameters on {device}", flush=True)
 
     mm_scale = float(np.nanstd(data.fine[data.split_index("train")]))
-    print(f"[loss] {args.loss} (mm scale {mm_scale:.2f})", flush=True)
+    print(f"[loss] {'bernoulli_gamma (likelihood; --loss ignored)' if is_bg else args.loss}"
+          f" (mm scale {mm_scale:.2f})", flush=True)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4, betas=(0.9, 0.99))
     scaler = torch.amp.GradScaler("cuda", enabled=(args.amp == "fp16" and device.type == "cuda"))
@@ -415,7 +428,22 @@ def main(argv=None):
                 g["lr"] = lr_at(step, args.steps, args.lr, args.warmup)
             cond, coarse, tgt, mask, sw = [x.to(device, non_blocking=True) for x in (cond, coarse, tgt, mask, sw)]
             with torch.autocast("cuda", dtype=amp_dtype, enabled=device.type == "cuda" and args.amp != "off"):
-                if diff is None:
+                if is_bg:
+                    # The distributional head returns parameters, not a field,
+                    # so it bypasses masked_loss entirely: its likelihood is the
+                    # loss, and there is no conditional-mean surrogate involved.
+                    logit_p, r, log_k, base = model(cond, coarse)
+                    # The backbone works in standardised log space; the gamma
+                    # mean is a mm quantity, so the bilinear field has to cross
+                    # back here. Taking log() of the standardised field instead
+                    # silently produces a model worse than the baseline.
+                    base_mm = data.norm.to_mm(base.float())
+                    o_mm = data.norm.to_mm(tgt).float()
+                    loss, occ_l, gam_l = bg_nll(
+                        logit_p.float(), r.float(), log_k.float(), base_mm.float(),
+                        o_mm, mask, wet_mm=args.bg_wet_mm,
+                        heavy_mm=args.heavy_mm, heavy_weight=args.heavy_weight)
+                elif diff is None:
                     u = model(cond, coarse)
                     # The loss (in particular the expm1 in mm space) is taken in
                     # fp32: bf16 has ~3 decimal digits, which is not enough for
@@ -512,6 +540,26 @@ def main(argv=None):
                 ckpt["mean_ckpt"] = args.mean_ckpt
             torch.save(ckpt, out / f"{name_tag}_best.pt")
             print(f"        saved {name_tag}_best.pt (score {score:.4f})", flush=True)
+
+    # The eligibility floors can reject every checkpoint in a run. The fallback
+    # above only fires when the run ends on --max-minutes, so a run that spends
+    # its whole --steps budget below the floor used to finish having written no
+    # weights at all, announcing it only as "best dev score inf". Save the last
+    # evaluated model instead, and say plainly that the floor was never met.
+    if not math.isfinite(best) and history and diff is None:
+        last = history[-1]
+        tgt_model = ema.shadow if ema else model
+        torch.save({"model": args.model,
+                    "state_dict": {k: v.cpu() for k, v in tgt_model.state_dict().items()},
+                    "args": vars(args), "norm": data.norm.to_dict(), "n_cond": data.n_cond,
+                    "factor": factor, "dev_score": last.get("rmse"), "dev_metrics": last,
+                    "step": last["step"], "floor_never_met": True},
+                   out / f"{name_tag}_best.pt")
+        best = float(last.get("rmse", float("inf")))
+        floor = args.pod_floor if args.select in ("rmse_pod", "rmse_pod_spec") else args.spec_floor
+        print(f"        no checkpoint cleared the --select {args.select} floor ({floor:g}); "
+              f"saved the last one at step {last['step']} (rmse {best:.4f}). "
+              f"This model was NOT selected on the criterion you asked for.", flush=True)
 
     json.dump({"history": history, "best": best, "args": vars(args), "steps_done": step,
                "minutes": (time.time() - t_start) / 60, "params": count_params(model),

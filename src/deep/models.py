@@ -268,6 +268,13 @@ def build_model(name: str, n_cond: int, factor: int = 12, **kw) -> nn.Module:
     cin = n_cond + 1  # + bilinear coarse channel
     if name == "cnn":
         return Downscaler(UNet(cin, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))), factor)
+    if name == "cnn_bg":
+        # Same backbone, three output channels: occurrence logit, log-space
+        # residual on bilinear, and gamma shape. See deep/distributional.py.
+        from .distributional import BernoulliGammaHead
+        return BernoulliGammaHead(
+            UNet(cin, 3, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))),
+            factor, wet_mm=kw.get("wet_mm", 0.1))
     if name == "swin":
         return Downscaler(SwinSR(cin, dim=kw.get("dim", 96), depths=kw.get("depths", (4, 4, 4, 4)),
                                  ws=kw.get("ws", 8), heads=kw.get("heads", 6), factor=factor), factor)
