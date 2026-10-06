@@ -1,0 +1,119 @@
+# NASA POWER (MERRA-2) as the coarse input, AORC as truth.
+#
+# A different question from the IMERG study, not a repeat. POWER is a 0.5 deg
+# reanalysis, not a 10 km satellite retrieval, so:
+#   * one coarse cell covers 60 x 60 = 3,600 fine cells, against IMERG's 144
+#   * PRECTOTCORR is already gauge-bias-corrected, so there should be LESS
+#     coarse-scale bias to remove -- and the IMERG study concluded that
+#     coarse-scale bias correction is most of what these models recover.
+# The prediction is therefore a SMALLER gain over bilinear than IMERG's 6.8%.
+# A larger gain would contradict the IMERG paper's central claim, which is what
+# makes this worth running.
+project_root: .
+
+domain:
+  # Expanded so stage 1 has enough coarse cells to fit 27 features: the Austin
+  # box alone holds just 42 POWER cells against IMERG's 1,050. Scoring is still
+  # restricted to Austin (see `evaluation`), so results stay comparable.
+  name: texas_power
+  bbox: [-101.0, 28.5, -95.0, 35.5]   # 12 x 14 = 168 coarse cells
+  coarse_res_deg: 0.5                 # POWER / MERRA-2
+  fine_factor: 60                     # 0.5 / 60 = 1/120 deg, the AORC grid
+
+evaluation:
+  # The same Austin box the IMERG study scored on, so the two are comparable.
+  bbox: [-99.0, 28.5, -96.0, 32.0]
+  name: austin_holdout
+
+time:
+  # Matched to the IMERG study for a controlled head-to-head. POWER reaches
+  # back to 1981 and AORC to 1979, so a 40-year run is a later experiment.
+  start: "2000-06-01"
+  end: "2020-12-31"
+  train_start: "2000-06-01"
+  train_end: "2017-12-31"
+  val_start: "2019-01-01"
+  val_end: "2020-12-31"
+
+data:
+  power:
+    parameter: PRECTOTCORR     # "Precipitation Corrected", mm/day
+    pad_deg: 1.0               # margin so edge cells are fully covered by the regrid
+  imerg:
+    # unused here; kept so shared code paths that read this block do not fail
+    short_name: GPM_3IMERGDF
+    version: "07"
+    variable: auto
+    mode: opendap
+    keep_raw: false
+  aorc:
+    bucket: noaa-nws-aorc-v1-1-1km
+    variable: APCP_surface
+  nlcd:
+    year: 2021
+    wcs_url: https://www.mrlc.gov/geoserver/ows
+    landcover_coverage: mrlc_download__NLCD_2021_Land_Cover_L48
+    impervious_coverage: mrlc_download__NLCD_2021_Impervious_L48
+    tile_km: 60
+    dem_source: copernicus_glo90
+    dem_resampling: average
+
+features:
+  source_prefix: power        # features are named power, power_roll7, power_pct, power_nbr3
+  rolling_days: 7
+  neighborhood: 3
+  include_doy: true
+  include_latlon: false
+  use_era5: true
+  # POWER has no half-hour counters, so the four sub-daily structure features
+  # that ranked 4th and 5th for IMERG are simply unavailable: 27 channels, not 31.
+
+model:
+  coarse:
+    type: xgb
+    early_stopping_rounds: 40
+    params:
+      n_estimators: 2000
+      max_depth: 4
+      learning_rate: 0.02
+      subsample: 0.8
+      colsample_bytree: 0.8
+      min_child_weight: 5
+  fine:
+    type: xgb
+    early_stopping_rounds: 40
+    max_samples: 3000000
+    val_samples: 500000
+    seed: 42
+    min_gain_over_bilinear: 0.005
+    params:
+      n_estimators: 2000
+      max_depth: 4
+      learning_rate: 0.02
+      subsample: 0.8
+      colsample_bytree: 0.8
+      min_child_weight: 20
+
+upsampling:
+  method: auto
+  lapse_alpha: -0.0002
+  conserve_mass: false
+  time_chunk: 16              # fine grid is 4x Austin's, so smaller time blocks
+
+validation:
+  heavy_threshold_mm: 30.0
+  intensity_bins_mm: [1.0, 10.0, 30.0]
+  complex_terrain_slope_deg: 5.0
+  qq_samples: 200000
+  sample_locations:
+    - {name: Austin, lat: 30.27, lon: -97.74}
+    - {name: San Antonio, lat: 29.42, lon: -98.49}
+    - {name: Waco, lat: 31.55, lon: -97.15}
+    - {name: Dallas, lat: 32.78, lon: -96.80}
+
+paths:
+  raw: data_power/raw
+  processed: data_power
+  auxiliary: data_power/auxiliary
+  models: models/power
+  results: results/power

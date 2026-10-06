@@ -16,7 +16,7 @@ REMOTE=${VISTA_DIR:-/scratch/11755/gurup12/downscaling}
 cd "$(dirname "$0")/.."
 
 code_files() {
-  ls src/*.py src/deep/*.py slurm/*.slurm slurm/*.sh main.py config.yaml config_vista.yaml 2>/dev/null
+  ls src/*.py src/deep/*.py scripts/*.py slurm/*.slurm slurm/*.sh main.py config*.yaml 2>/dev/null
 }
 
 do_verify() {
