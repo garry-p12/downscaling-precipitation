@@ -90,6 +90,17 @@ def source_prefix(cfg: dict) -> str:
     return str((cfg.get("features") or {}).get("source_prefix", "imerg"))
 
 
+def era5_feature_names(cfg: dict) -> list[str]:
+    """ERA5 channels to use, minus ``features.era5_exclude``.
+
+    An ablation needs to drop one predictor while leaving the rest of the
+    pipeline identical; editing ERA5_FEATURES would change it globally and make
+    the two arms differ by more than the thing under test.
+    """
+    drop = set(cfg.get("features", {}).get("era5_exclude", []))
+    return [v for v in ERA5_FEATURES if v not in drop]
+
+
 def coarse_feature_names(cfg: dict) -> list[str]:
     fcfg = cfg["features"]
     sp = source_prefix(cfg)
@@ -105,7 +116,7 @@ def coarse_feature_names(cfg: dict) -> list[str]:
     if fcfg.get("include_latlon", False):
         names += ["lat", "lon"]
     if era5_available(cfg):
-        names += list(ERA5_FEATURES)
+        names += era5_feature_names(cfg)
     if structure_features_available(cfg):
         names += list(STRUCTURE_FEATURES)
     return names
@@ -327,7 +338,8 @@ def coarse_features_10km(imerg: xr.DataArray, nlcd: xr.Dataset, clim: xr.DataArr
     if era5_available(cfg):
         era5 = era5 if era5 is not None else load_era5(cfg, imerg["time"])
         if era5 is not None:
-            ds = ds.merge(era5[[v for v in ERA5_FEATURES if v in era5]])
+            keep = era5_feature_names(cfg)
+            ds = ds.merge(era5[[v for v in keep if v in era5]])
     if structure_features_available(cfg):
         st = load_imerg_structure(cfg, imerg["time"])
         if st is not None:

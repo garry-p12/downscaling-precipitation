@@ -74,6 +74,21 @@ ERA5_VARS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 
 
+def _cached_name(v: str, how: str) -> str:
+    """Variable name a reducer writes into the month cache.
+
+    acc24 selects a pre-computed 24 h accumulation rather than reducing, but it
+    still stores under ``<v>_sum`` so the rest of the pipeline sees one name for
+    "daily total". The cache-completeness check has to agree with that, or every
+    cached month looks to be missing ``tp_acc24`` and is silently refetched.
+    """
+    if how == "mean":
+        return v
+    if how == "acc24":
+        return f"{v}_sum"
+    return f"{v}_{how}"
+
+
 def _open(store: str):
     return xr.open_zarr(ARCO_HOURLY if store == "hourly" else ARCO_6H,
                         chunks={"time": 24}, storage_options=dict(token="anon"))
@@ -104,7 +119,7 @@ def fetch_era5_daily(grids: GridPair, start: str, end: str, variables=None, pad_
         if cf and cf.exists():
             cached = xr.open_dataset(cf).load()
             have = set(cached.data_vars)
-            want = {v if how == "mean" else f"{v}_{how}"
+            want = {_cached_name(v, how)
                     for v in variables for how in ERA5_VARS[v][2]}
             if want <= have:
                 pieces.append(cached)
