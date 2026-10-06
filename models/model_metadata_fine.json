@@ -1,5 +1,6 @@
 {
   "stage": "fine_1km_residual",
+  "months": null,
   "recommended_method": "bilinear",
   "model_type": "xgb",
   "hyperparams": {
@@ -11,7 +12,7 @@
     "min_child_weight": 20
   },
   "best_iteration": -1,
-  "n_train_rows": 3000462,
+  "n_train_rows": 3000430,
   "n_val_rows": 499932,
   "feature_names": [
     "pred_bl",
@@ -40,117 +41,117 @@
   ],
   "feature_importance": [
     {
-      "feature": "doy_sin",
-      "importance": 0.06951086535922758
-    },
-    {
-      "feature": "dem",
-      "importance": 0.06415761659058962
+      "feature": "pred_bl",
+      "importance": 0.18518013846205936
     },
     {
       "feature": "doy_cos",
-      "importance": 0.061958335866873465
-    },
-    {
-      "feature": "lc_frac_crop",
-      "importance": 0.06140206723408015
+      "importance": 0.1784005418179176
     },
     {
       "feature": "imerg_roll7_bl",
-      "importance": 0.060264664400563245
-    },
-    {
-      "feature": "dem_x_slope",
-      "importance": 0.05856945641655145
+      "importance": 0.11498124786170141
     },
     {
       "feature": "lc_frac_shrub",
-      "importance": 0.055118497431815267
+      "importance": 0.1105502800867699
     },
     {
-      "feature": "lc_frac_barren",
-      "importance": 0.04974420856723629
+      "feature": "doy_sin",
+      "importance": 0.09586591605512124
     },
     {
-      "feature": "lc_frac_grass",
-      "importance": 0.04431893333380026
-    },
-    {
-      "feature": "pred_bl",
-      "importance": 0.04403819361782268
-    },
-    {
-      "feature": "slope",
-      "importance": 0.04312673623973111
-    },
-    {
-      "feature": "dem_x_developed",
-      "importance": 0.04070742407151422
-    },
-    {
-      "feature": "lc_frac_developed",
-      "importance": 0.0406820873517029
-    },
-    {
-      "feature": "imerg_pct_bl",
-      "importance": 0.03648908173463545
-    },
-    {
-      "feature": "imperv",
-      "importance": 0.03451428026981933
+      "feature": "dem",
+      "importance": 0.07704764425628487
     },
     {
       "feature": "imerg_bl",
-      "importance": 0.03417470634171258
+      "importance": 0.06480306215200654
+    },
+    {
+      "feature": "dem_x_slope",
+      "importance": 0.057172881941358146
+    },
+    {
+      "feature": "imerg_pct_bl",
+      "importance": 0.04513648895642354
+    },
+    {
+      "feature": "slope",
+      "importance": 0.044413715618145916
     },
     {
       "feature": "dem_anom",
-      "importance": 0.032759538377974455
-    },
-    {
-      "feature": "lc_frac_forest",
-      "importance": 0.03217620664049232
+      "importance": 0.026448082792211502
     },
     {
       "feature": "dem_x_forest",
-      "importance": 0.029949831167558012
-    },
-    {
-      "feature": "lc_frac_water",
-      "importance": 0.028973527116765898
+      "importance": 0.0
     },
     {
       "feature": "lc_frac_wetland",
-      "importance": 0.028058574776213537
+      "importance": 0.0
     },
     {
-      "feature": "aspect_sin",
-      "importance": 0.025650932407199224
+      "feature": "lc_frac_crop",
+      "importance": 0.0
+    },
+    {
+      "feature": "lc_frac_grass",
+      "importance": 0.0
+    },
+    {
+      "feature": "lc_frac_water",
+      "importance": 0.0
+    },
+    {
+      "feature": "lc_frac_forest",
+      "importance": 0.0
+    },
+    {
+      "feature": "lc_frac_barren",
+      "importance": 0.0
+    },
+    {
+      "feature": "lc_frac_developed",
+      "importance": 0.0
+    },
+    {
+      "feature": "imperv",
+      "importance": 0.0
     },
     {
       "feature": "aspect_cos",
-      "importance": 0.023654234686120965
+      "importance": 0.0
+    },
+    {
+      "feature": "aspect_sin",
+      "importance": 0.0
+    },
+    {
+      "feature": "dem_x_developed",
+      "importance": 0.0
     }
   ],
   "top10_features": [
+    "pred_bl",
+    "doy_cos",
+    "imerg_roll7_bl",
+    "lc_frac_shrub",
     "doy_sin",
     "dem",
-    "doy_cos",
-    "lc_frac_crop",
-    "imerg_roll7_bl",
+    "imerg_bl",
     "dem_x_slope",
-    "lc_frac_shrub",
-    "lc_frac_barren",
-    "lc_frac_grass",
-    "pred_bl"
+    "imerg_pct_bl",
+    "slope"
   ],
   "metrics": {
-    "holdout_rmse_residual_model": 5.562165260314941,
-    "holdout_rmse_bilinear_stage1": 5.5599236488342285,
-    "val_rmse_residual_model": 4.9088921546936035,
-    "val_rmse_bilinear_stage1": 4.777317523956299,
-    "val_corr_residual_model": 0.8134562675990429,
-    "val_corr_bilinear_stage1": 0.824879433186482
+    "holdout_rmse_residual_model": 4.997067928314209,
+    "holdout_rmse_bilinear_stage1": 5.007567405700684,
+    "val_rmse_residual_model": 4.592619895935059,
+    "val_rmse_bilinear_stage1": 4.594069004058838,
+    "val_corr_residual_model": 0.8397246374619349,
+    "val_corr_bilinear_stage1": 0.8397037884404673
   },
-  "trained_at": "2026-09-26T17:59:30.048581+00:00"
+  "trained_at": "2026-10-06T06:30:06.933341+00:00"
 }

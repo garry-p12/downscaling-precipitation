@@ -10,7 +10,7 @@
     "min_child_weight": 5
   },
   "best_iteration": -1,
-  "n_train_rows": 6744150,
+  "n_train_rows": 1150800,
   "n_val_rows": 767550,
   "feature_names": [
     "imerg",
@@ -40,156 +40,151 @@
     "wind_sin",
     "wind_cos",
     "moist_flux",
-    "imerg_wet_frac",
-    "imerg_cond_intensity",
-    "imerg_mw_frac",
-    "imerg_prob_liquid"
+    "era5_tp",
+    "era5_sf",
+    "era5_snow_frac"
   ],
   "feature_importance": [
     {
       "feature": "imerg_nbr3",
-      "importance": 0.5217647887523105
+      "importance": 0.4191603641743209
     },
     {
       "feature": "imerg",
-      "importance": 0.1873949053299568
+      "importance": 0.24342736208215865
     },
     {
       "feature": "imerg_pct",
-      "importance": 0.08472386077440212
+      "importance": 0.04538957109279933
     },
     {
-      "feature": "imerg_cond_intensity",
-      "importance": 0.023453978798322058
-    },
-    {
-      "feature": "imerg_wet_frac",
-      "importance": 0.022739515517230167
+      "feature": "era5_tp",
+      "importance": 0.027868440103244838
     },
     {
       "feature": "imerg_roll7",
-      "importance": 0.01531126299741938
-    },
-    {
-      "feature": "imerg_mw_frac",
-      "importance": 0.011795672313523888
-    },
-    {
-      "feature": "wind_speed",
-      "importance": 0.011335819225113928
-    },
-    {
-      "feature": "cape",
-      "importance": 0.010408725949360693
-    },
-    {
-      "feature": "tcwv_max",
-      "importance": 0.009230928121507323
-    },
-    {
-      "feature": "t2m",
-      "importance": 0.00899480396839938
-    },
-    {
-      "feature": "wind_sin",
-      "importance": 0.008713218158919334
-    },
-    {
-      "feature": "tcwv",
-      "importance": 0.008334164369603709
-    },
-    {
-      "feature": "doy_sin",
-      "importance": 0.0075508337685873134
-    },
-    {
-      "feature": "moist_flux",
-      "importance": 0.006337527240841929
-    },
-    {
-      "feature": "lc_frac_grass",
-      "importance": 0.0061517294913624055
-    },
-    {
-      "feature": "cape_max",
-      "importance": 0.0061441654026406995
-    },
-    {
-      "feature": "doy_cos",
-      "importance": 0.006056768537272432
-    },
-    {
-      "feature": "dem_mean",
-      "importance": 0.005585094706291493
-    },
-    {
-      "feature": "lc_frac_shrub",
-      "importance": 0.005131343810501926
+      "importance": 0.027844162663106426
     },
     {
       "feature": "wind_cos",
-      "importance": 0.004505620144122626
+      "importance": 0.024009921755333175
     },
     {
-      "feature": "lc_frac_developed",
-      "importance": 0.004160842553183773
+      "feature": "cape",
+      "importance": 0.018591246485916715
     },
     {
-      "feature": "dem_std",
-      "importance": 0.0037602795607298944
+      "feature": "tcwv_max",
+      "importance": 0.017459462342044794
     },
     {
-      "feature": "slope_mean",
-      "importance": 0.0037329010202515047
+      "feature": "tcwv",
+      "importance": 0.01532384739538631
     },
     {
-      "feature": "lc_frac_crop",
-      "importance": 0.0036315175121364542
+      "feature": "wind_speed",
+      "importance": 0.013772043789329242
+    },
+    {
+      "feature": "era5_sf",
+      "importance": 0.012986348316371969
+    },
+    {
+      "feature": "doy_sin",
+      "importance": 0.012389097369991848
     },
     {
       "feature": "lc_frac_forest",
-      "importance": 0.0031493604968875787
+      "importance": 0.01113036578812114
     },
     {
-      "feature": "imperv_mean",
-      "importance": 0.0031042819888003966
+      "feature": "lc_frac_shrub",
+      "importance": 0.01045353001115816
     },
     {
-      "feature": "lc_frac_barren",
-      "importance": 0.002852069068419875
+      "feature": "cape_max",
+      "importance": 0.010242495863425276
     },
     {
-      "feature": "lc_frac_water",
-      "importance": 0.0016958233315934248
+      "feature": "lc_frac_grass",
+      "importance": 0.009750330316550215
+    },
+    {
+      "feature": "wind_sin",
+      "importance": 0.00957647323608368
+    },
+    {
+      "feature": "slope_mean",
+      "importance": 0.009540682216874038
+    },
+    {
+      "feature": "moist_flux",
+      "importance": 0.009446466124770042
+    },
+    {
+      "feature": "doy_cos",
+      "importance": 0.008895654576592657
+    },
+    {
+      "feature": "t2m",
+      "importance": 0.007485421647515559
+    },
+    {
+      "feature": "dem_std",
+      "importance": 0.007438875487819587
     },
     {
       "feature": "lc_frac_wetland",
-      "importance": 0.001451867751137878
+      "importance": 0.0070770922602806366
     },
     {
-      "feature": "imerg_prob_liquid",
-      "importance": 0.000796329339169183
+      "feature": "lc_frac_water",
+      "importance": 0.006801000250466629
+    },
+    {
+      "feature": "dem_mean",
+      "importance": 0.005434188393214103
+    },
+    {
+      "feature": "lc_frac_barren",
+      "importance": 0.004870400695219983
+    },
+    {
+      "feature": "lc_frac_crop",
+      "importance": 0.0022920717550827547
+    },
+    {
+      "feature": "imperv_mean",
+      "importance": 0.0007289157921516096
+    },
+    {
+      "feature": "era5_snow_frac",
+      "importance": 0.0006141680146697561
+    },
+    {
+      "feature": "lc_frac_developed",
+      "importance": 0.0
     }
   ],
   "top10_features": [
     "imerg_nbr3",
     "imerg",
     "imerg_pct",
-    "imerg_cond_intensity",
-    "imerg_wet_frac",
+    "era5_tp",
     "imerg_roll7",
-    "imerg_mw_frac",
-    "wind_speed",
+    "wind_cos",
     "cape",
-    "tcwv_max"
+    "tcwv_max",
+    "tcwv",
+    "wind_speed"
   ],
   "metrics": {
-    "train_rmse": 4.232220649719238,
-    "val_rmse": 4.401681423187256,
-    "val_rmse_imerg_raw": 4.812447547912598,
-    "val_bias": -0.04343182221055031,
-    "val_corr": 0.8484973880939027,
-    "val_corr_imerg_raw": 0.8206910550538823
+    "train_rmse": 4.878258228302002,
+    "val_rmse": 4.393979549407959,
+    "val_rmse_imerg_raw": 4.812448024749756,
+    "val_bias": -0.01615098863840103,
+    "val_corr": 0.8488312619883203,
+    "val_corr_imerg_raw": 0.8206910550539338
   },
   "train_period": [
     "2000-06-01",
@@ -210,5 +205,5 @@
     "coarse_res_deg": 0.1,
     "fine_factor": 12
   },
-  "trained_at": "2026-09-27T22:17:05.117817+00:00"
+  "trained_at": "2026-10-06T06:29:35.209522+00:00"
 }
