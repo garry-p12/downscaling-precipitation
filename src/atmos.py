@@ -52,8 +52,25 @@ ERA5_VARS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # precipitation is often the better estimate. Snowfall is carried separately
     # because frozen precipitation is exactly the regime a microwave retrieval
     # struggles with, so its share of the total is informative on its own.
-    "tp": ("total_precipitation", "hourly", ("sum",)),
-    "sf": ("snowfall", "hourly", ("sum",)),
+    # Precipitation comes from the 6-hourly store's pre-computed 24 h
+    # accumulation, not from summing the hourly field. Two reasons, and the
+    # second is the important one:
+    #
+    #   Cost. Both stores chunk one global field per timestep, so the price of
+    #   a month is the number of timesteps read, not the size of our domain.
+    #   Summing hourly tp is 744 global reads per month; tp_24hr is 31.
+    #
+    #   Correctness. ERA5 stamps an accumulation at the END of its window, so
+    #   hourly tp at t covers [t-1h, t]. Resampling by the timestamp's date
+    #   therefore sums [D-1 23:00, D 23:00] -- a 24 h window shifted an hour
+    #   early. tp_24hr stamped at D+1 00:00 covers [D 00:00, D+1 00:00], which
+    #   is the UTC day the rest of this pipeline uses. The two differ: r=0.973
+    #   over a Colorado month, with single-cell differences up to 7.5 mm.
+    #
+    # Snowfall has no 24 h counterpart and exists only hourly, so it is not
+    # carried: 744 reads a month for a field whose 99th percentile over Austin
+    # is 0.000, and whose information a tree can recover from t2m and tp.
+    "tp": ("total_precipitation_24hr", "6h", ("acc24",)),
 }
 
 
@@ -106,6 +123,14 @@ def fetch_era5_daily(grids: GridPair, start: str, end: str, variables=None, pad_
         out = {}
         for v in todo:
             arco_name, store, reducers = ERA5_VARS[v]
+            if reducers == ("acc24",):
+                # The 24 h total for day D is stamped at D+1 00:00. Select those
+                # stamps and relabel them to the day they describe.
+                want = pd.date_range(m0.normalize(), m1.normalize(), freq="D") + pd.Timedelta(days=1)
+                da = stores[store][arco_name].sel(time=want, **sel)
+                da = da.assign_coords(time=want - pd.Timedelta(days=1))
+                out[f"{v}_sum"] = da.compute().astype("float32")
+                continue
             da = stores[store][arco_name].sel(time=slice(m0, m1), **sel)
             daily = da.resample(time="1D")
             for how in reducers:
@@ -141,10 +166,6 @@ def derive_and_regrid(ds: xr.Dataset, grids: GridPair, time_axis: np.ndarray) ->
         if v in ds.data_vars:
             ds[out_name] = ds[v] * 1000.0
             ds = ds.drop_vars(v)
-    if {"era5_tp", "era5_sf"} <= set(ds.data_vars):
-        # Share of the reanalysis total falling as snow: a direct handle on the
-        # regime where IMERG's error structure changes.
-        ds["era5_snow_frac"] = (ds["era5_sf"] / ds["era5_tp"].where(ds["era5_tp"] > 0.1)).fillna(0.0).clip(0, 1)
     lon = ds["longitude"]
     ds = ds.assign_coords(longitude=((lon + 180) % 360) - 180).sortby("longitude").sortby("latitude")
     ds = ds.interp(latitude=grids.coarse.lat, longitude=grids.coarse.lon, method="linear",
@@ -175,4 +196,4 @@ def build_era5_features(cfg: dict, grids: GridPair, variables=None) -> Path:
 
 
 ERA5_FEATURES = ["cape_max", "cape", "tcwv", "tcwv_max", "t2m", "wind_speed", "wind_sin", "wind_cos",
-                 "moist_flux", "era5_tp", "era5_sf", "era5_snow_frac"]
+                 "moist_flux", "era5_tp"]
