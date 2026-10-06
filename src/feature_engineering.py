@@ -97,6 +97,8 @@ def coarse_feature_names(cfg: dict) -> list[str]:
              f"{sp}_nbr{fcfg.get('neighborhood', 3)}"]
     if fcfg.get("adjacent_days", False):
         names += [f"{sp}_prev", f"{sp}_next"]
+    if fcfg.get("bias_climatology", False):
+        names += ["imerg_bias_clim"]
     if fcfg.get("include_doy", True):
         names += ["doy_sin", "doy_cos"]
     names += ["dem_mean", "dem_std", "slope_mean", "imperv_mean"] + [f"lc_frac_{g}" for g in LC_GROUPS]
@@ -312,6 +314,16 @@ def coarse_features_10km(imerg: xr.DataArray, nlcd: xr.Dataset, clim: xr.DataArr
     dyn = coarse_dynamic_features(imerg, clim, cfg)
     stat = coarse_static_features_10km(nlcd, grids, cfg)
     ds = dyn.merge(stat)
+    if cfg["features"].get("bias_climatology", False):
+        # Fitted on training years only, then looked up by calendar month, so a
+        # test day never sees a bias estimated from its own year.
+        try:
+            bc = imerg_bias_climatology(cfg, grids)
+            months = ds["time"].dt.month.values
+            ds["imerg_bias_clim"] = (("time", "lat", "lon"),
+                                     bc.values[months - 1].astype(np.float32))
+        except (FileNotFoundError, KeyError) as e:
+            LOG.warning("bias climatology unavailable (%s); continuing without it", e)
     if era5_available(cfg):
         era5 = era5 if era5 is not None else load_era5(cfg, imerg["time"])
         if era5 is not None:
@@ -491,3 +503,54 @@ def sample_fine_training_data(cfg: dict, grids: GridPair, coarse: xr.Dataset, fi
     X = np.concatenate(Xs); y = np.concatenate(ys); base = np.concatenate(bases)
     LOG.info("Fine samples: %d rows x %d features from %d days", len(y), X.shape[1], nt)
     return X, y.astype(np.float32), base.astype(np.float32)
+
+
+def imerg_bias_climatology(cfg: dict, grids: GridPair, k: float = 200.0) -> xr.DataArray:
+    """Per-cell, per-month multiplicative bias of the coarse input, from training years only.
+
+    Section 5.7 found that what stage 1 mostly learns is local bias. This hands
+    it that directly, which both shortens the path and makes pooled multi-region
+    training possible -- a model trained on several domains currently has to
+    rediscover each one's bias from the features, and mostly fails to.
+
+    The estimator needs shrinkage to be usable. A cell-month cell has on the
+    order of ninety training days, and the quantity is a ratio of precipitation
+    sums, which are heavy-tailed: the raw ratio is dominated by whether one
+    convective day happened to fall in that cell. Each cell-month is therefore
+    pulled toward the domain-wide ratio for that month with weight n/(n+k),
+    where n is the observed accumulation. With k = 200 mm a cell needs a few
+    hundred millimetres of record before its own ratio counts for much.
+
+    Measured on Austin, it does not work, and the reason is worth more than the
+    feature: the map fitted on 2015-2017 correlates **-0.107** with the same map
+    fitted on 2019-2020, and the difference between them is 1.38x the map's own
+    spread across cells. IMERG's per-cell monthly bias is not a stable property
+    at this resolution over a few years, so the correction does not transfer.
+    The tree ranks it fifth by importance and is misled by it: stage-1 val RMSE
+    4.391 -> 4.463. Off by default.
+
+    That stage 1 still beats raw IMERG by 0.42 mm while this fails says what it
+    actually learns is not a static per-cell offset but a conditional one --
+    bias given intensity, season and environment -- which is the stable part.
+
+    Returns a (month, lat, lon) field; look it up by calendar month.
+    """
+    proc = Path(cfg["paths"]["processed"])
+    sl = slice(cfg["time"]["train_start"], cfg["time"]["train_end"])
+    obs = xr.open_dataset(proc / "aorc_aligned_10km.nc")["precip"].sel(time=sl)
+    inp = xr.open_dataset(proc / "imerg_aligned_10km.nc")["precip"].sel(time=sl)
+    # Align on the days both carry; a day present in one only would bias the ratio.
+    t = np.intersect1d(obs["time"].values, inp["time"].values)
+    obs, inp = obs.sel(time=t), inp.sel(time=t)
+
+    mo = obs["time"].dt.month
+    o_sum = obs.groupby(mo).sum("time")
+    i_sum = inp.groupby(mo).sum("time")
+    o_sum = o_sum.rename({"month": "month"}) if "month" in o_sum.dims else o_sum
+    # Domain-wide ratio for the month: the target the per-cell estimate shrinks to.
+    pooled = (o_sum.sum(("lat", "lon")) / i_sum.sum(("lat", "lon")).clip(min=1e-6))
+    raw = o_sum / i_sum.clip(min=1e-6)
+    w = i_sum / (i_sum + k)
+    bias = (w * raw + (1 - w) * pooled).astype("float32")
+    # A ratio outside this range is an artefact of a near-dry cell, not a bias.
+    return bias.clip(0.2, 5.0).rename("imerg_bias_clim")

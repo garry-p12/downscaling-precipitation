@@ -40,129 +40,119 @@
     "wind_sin",
     "wind_cos",
     "moist_flux",
-    "era5_tp",
-    "era5_sf",
-    "era5_snow_frac"
+    "era5_tp"
   ],
   "feature_importance": [
     {
       "feature": "imerg_nbr3",
-      "importance": 0.4191603641743209
+      "importance": 0.32959765876387404
     },
     {
       "feature": "imerg",
-      "importance": 0.24342736208215865
+      "importance": 0.29394891218657654
     },
     {
       "feature": "imerg_pct",
-      "importance": 0.04538957109279933
-    },
-    {
-      "feature": "era5_tp",
-      "importance": 0.027868440103244838
+      "importance": 0.06949696513017677
     },
     {
       "feature": "imerg_roll7",
-      "importance": 0.027844162663106426
+      "importance": 0.03420642900559134
+    },
+    {
+      "feature": "era5_tp",
+      "importance": 0.03169188029598393
     },
     {
       "feature": "wind_cos",
-      "importance": 0.024009921755333175
-    },
-    {
-      "feature": "cape",
-      "importance": 0.018591246485916715
-    },
-    {
-      "feature": "tcwv_max",
-      "importance": 0.017459462342044794
-    },
-    {
-      "feature": "tcwv",
-      "importance": 0.01532384739538631
-    },
-    {
-      "feature": "wind_speed",
-      "importance": 0.013772043789329242
-    },
-    {
-      "feature": "era5_sf",
-      "importance": 0.012986348316371969
-    },
-    {
-      "feature": "doy_sin",
-      "importance": 0.012389097369991848
-    },
-    {
-      "feature": "lc_frac_forest",
-      "importance": 0.01113036578812114
-    },
-    {
-      "feature": "lc_frac_shrub",
-      "importance": 0.01045353001115816
-    },
-    {
-      "feature": "cape_max",
-      "importance": 0.010242495863425276
-    },
-    {
-      "feature": "lc_frac_grass",
-      "importance": 0.009750330316550215
-    },
-    {
-      "feature": "wind_sin",
-      "importance": 0.00957647323608368
-    },
-    {
-      "feature": "slope_mean",
-      "importance": 0.009540682216874038
-    },
-    {
-      "feature": "moist_flux",
-      "importance": 0.009446466124770042
-    },
-    {
-      "feature": "doy_cos",
-      "importance": 0.008895654576592657
-    },
-    {
-      "feature": "t2m",
-      "importance": 0.007485421647515559
-    },
-    {
-      "feature": "dem_std",
-      "importance": 0.007438875487819587
-    },
-    {
-      "feature": "lc_frac_wetland",
-      "importance": 0.0070770922602806366
-    },
-    {
-      "feature": "lc_frac_water",
-      "importance": 0.006801000250466629
-    },
-    {
-      "feature": "dem_mean",
-      "importance": 0.005434188393214103
-    },
-    {
-      "feature": "lc_frac_barren",
-      "importance": 0.004870400695219983
+      "importance": 0.025289418982115505
     },
     {
       "feature": "lc_frac_crop",
-      "importance": 0.0022920717550827547
+      "importance": 0.02436665212320363
     },
     {
-      "feature": "imperv_mean",
-      "importance": 0.0007289157921516096
+      "feature": "lc_frac_wetland",
+      "importance": 0.017380614065374667
     },
     {
-      "feature": "era5_snow_frac",
-      "importance": 0.0006141680146697561
+      "feature": "cape",
+      "importance": 0.016365362612702432
+    },
+    {
+      "feature": "tcwv_max",
+      "importance": 0.01531839217663917
+    },
+    {
+      "feature": "tcwv",
+      "importance": 0.013314294821880731
+    },
+    {
+      "feature": "wind_speed",
+      "importance": 0.011960567481390485
+    },
+    {
+      "feature": "lc_frac_shrub",
+      "importance": 0.010813199649063507
+    },
+    {
+      "feature": "doy_sin",
+      "importance": 0.010479581548419449
     },
     {
       "feature": "lc_frac_developed",
+      "importance": 0.010208637139391416
+    },
+    {
+      "feature": "cape_max",
+      "importance": 0.00996233825846613
+    },
+    {
+      "feature": "lc_frac_grass",
+      "importance": 0.009878288843550428
+    },
+    {
+      "feature": "lc_frac_forest",
+      "importance": 0.009142155269246556
+    },
+    {
+      "feature": "wind_sin",
+      "importance": 0.008178673814399491
+    },
+    {
+      "feature": "moist_flux",
+      "importance": 0.007944496984061106
+    },
+    {
+      "feature": "slope_mean",
+      "importance": 0.007796681683482432
+    },
+    {
+      "feature": "doy_cos",
+      "importance": 0.0075978288588905
+    },
+    {
+      "feature": "lc_frac_water",
+      "importance": 0.006820453620307063
+    },
+    {
+      "feature": "t2m",
+      "importance": 0.00671466563385461
+    },
+    {
+      "feature": "dem_mean",
+      "importance": 0.00494875885739037
+    },
+    {
+      "feature": "dem_std",
+      "importance": 0.004263116449409447
+    },
+    {
+      "feature": "imperv_mean",
+      "importance": 0.0023139757445582547
+    },
+    {
+      "feature": "lc_frac_barren",
       "importance": 0.0
     }
   ],
@@ -170,20 +160,20 @@
     "imerg_nbr3",
     "imerg",
     "imerg_pct",
-    "era5_tp",
     "imerg_roll7",
+    "era5_tp",
     "wind_cos",
+    "lc_frac_crop",
+    "lc_frac_wetland",
     "cape",
-    "tcwv_max",
-    "tcwv",
-    "wind_speed"
+    "tcwv_max"
   ],
   "metrics": {
-    "train_rmse": 4.878258228302002,
-    "val_rmse": 4.393979549407959,
+    "train_rmse": 4.9183735847473145,
+    "val_rmse": 4.390594005584717,
     "val_rmse_imerg_raw": 4.812448024749756,
-    "val_bias": -0.01615098863840103,
-    "val_corr": 0.8488312619883203,
+    "val_bias": -0.008603419177234173,
+    "val_corr": 0.8491108750593461,
     "val_corr_imerg_raw": 0.8206910550539338
   },
   "train_period": [
@@ -205,5 +195,5 @@
     "coarse_res_deg": 0.1,
     "fine_factor": 12
   },
-  "trained_at": "2026-10-06T06:42:23.761848+00:00"
+  "trained_at": "2026-10-06T17:30:10.876863+00:00"
 }

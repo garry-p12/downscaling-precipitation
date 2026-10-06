@@ -45,8 +45,13 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool) -> None:
         # pair. The fine grid is unchanged, so the coarse cell is just `factor`
         # fine cells wide -- derive the resolution from that rather than scaling
         # a value the GridPair does not carry.
-        fine_res = float(np.diff(grids.fine.lat.values[:2])[0])
-        grids = make_grids(cfg["domain"]["bbox"], coarse_res=abs(fine_res) * factor,
+        # Scale the config's own coarse resolution rather than measuring the
+        # fine grid: its spacing is stored truncated (0.008333), so 60 cells of
+        # it come to 0.49998 and make_grids rejects the bbox as not a multiple.
+        dom = cfg["domain"]
+        base_res = float(dom["coarse_res_deg"])
+        base_factor = int(dom.get("fine_factor", grids.factor))
+        grids = make_grids(dom["bbox"], coarse_res=base_res * factor / base_factor,
                            factor=factor)
     out.mkdir(parents=True, exist_ok=True)
 
