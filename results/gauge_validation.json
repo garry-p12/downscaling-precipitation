@@ -1,0 +1,63 @@
+{
+  "period": [
+    "2019-01-01",
+    "2020-12-31"
+  ],
+  "n_stations": 616,
+  "min_days": 500,
+  "best_shift_counts": {
+    "0": 520,
+    "-1": 93,
+    "1": 3
+  },
+  "obs_time_mode": "0700",
+  "summary": {
+    "xgboost": {
+      "rmse": 6.754003431214679,
+      "mae": 2.2348103256760616,
+      "bias": 0.004067672756617179,
+      "n_obs": 412683
+    },
+    "cnn": {
+      "rmse": 6.992557290944553,
+      "mae": 2.322528795303158,
+      "bias": 0.09077309028005436,
+      "n_obs": 412683
+    },
+    "swin": {
+      "rmse": 7.032443531072457,
+      "mae": 2.3423624239664482,
+      "bias": 0.17457950600616842,
+      "n_obs": 412683
+    },
+    "diffusion": {
+      "rmse": 6.888110665325419,
+      "mae": 2.241347254677343,
+      "bias": -0.10397566016167598,
+      "n_obs": 412683
+    },
+    "stacked": {
+      "rmse": 6.848085926385559,
+      "mae": 2.2640464277370818,
+      "bias": 0.01897542964401623,
+      "n_obs": 412683
+    },
+    "bilinear": {
+      "rmse": 7.220225003900299,
+      "mae": 2.3165206940779366,
+      "bias": -0.020908463342179467,
+      "n_obs": 412683
+    },
+    "aorc": {
+      "rmse": 6.313687110896798,
+      "mae": 1.83066132055797,
+      "bias": 0.01655899087473892,
+      "n_obs": 412683
+    }
+  },
+  "caveats": [
+    "AORC assimilates gauge data, so this is only partly independent",
+    "gauge is a point, grid cell is ~0.86 km2 - representativeness error is large",
+    "GHCN daily totals end at a local observation hour; per-station day offset applied"
+  ]
+}
