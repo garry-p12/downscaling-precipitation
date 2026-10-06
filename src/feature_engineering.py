@@ -95,6 +95,8 @@ def coarse_feature_names(cfg: dict) -> list[str]:
     sp = source_prefix(cfg)
     names = [sp, f"{sp}_roll{fcfg.get('rolling_days', 7)}", f"{sp}_pct",
              f"{sp}_nbr{fcfg.get('neighborhood', 3)}"]
+    if fcfg.get("adjacent_days", False):
+        names += [f"{sp}_prev", f"{sp}_next"]
     if fcfg.get("include_doy", True):
         names += ["doy_sin", "doy_cos"]
     names += ["dem_mean", "dem_std", "slope_mean", "imperv_mean"] + [f"lc_frac_{g}" for g in LC_GROUPS]
@@ -269,6 +271,25 @@ def coarse_dynamic_features(imerg: xr.DataArray, clim: xr.DataArray, cfg: dict) 
     ds = xr.Dataset({sp: da})
     ds[f"{sp}_roll{win}"] = da.rolling(time=win, min_periods=1).mean().astype(np.float32)
     ds[f"{sp}_pct"] = (("time", "lat", "lon"), percentile_rank(da.values, clim.values))
+    if fcfg.get("adjacent_days", False):
+        # The previous and next day as separate channels, for the case where a
+        # storm straddling a day boundary lands on different days in the input
+        # and the reference. Off by default, because it does not apply here:
+        # data_pipeline aggregates AORC on "the timestamp's UTC date, consistent
+        # with IMERG daily files", so the two already share a boundary and there
+        # is no misallocation to recover. Measured on Austin it moves stage-1
+        # RMSE 4.394 -> 4.393, with the two channels taking 1.8 % of the tree's
+        # importance and returning nothing for it.
+        #
+        # Kept because it is the right feature for an input whose day convention
+        # differs from the reference's. It uses the future, so it is valid for a
+        # retrospective product and not for a forecast.
+        ds[f"{sp}_prev"] = da.shift(time=1).astype(np.float32)
+        ds[f"{sp}_next"] = da.shift(time=-1).astype(np.float32)
+        # The record's first and last day have no neighbour; fall back to the
+        # day itself rather than leaving a NaN the tree would have to special-case.
+        for k in (f"{sp}_prev", f"{sp}_next"):
+            ds[k] = ds[k].fillna(da)
     ds[f"{sp}_nbr{nb}"] = (("time", "lat", "lon"), nan_uniform_filter(da.values.astype(np.float64), nb).astype(np.float32))
     if fcfg.get("include_doy", True):
         doy = da["time"].dt.dayofyear.values.astype(np.float32)
