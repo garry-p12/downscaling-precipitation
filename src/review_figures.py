@@ -172,7 +172,12 @@ def main(argv=None):
     ap.add_argument("--analysis", default="results/review/review_analysis.json")
     ap.add_argument("--scores", default=None,
                     help="a score_variants JSON, for the R1 metric panel")
+    ap.add_argument("--gauge", default=None, help="a gauge_events JSON, for R5")
+    ap.add_argument("--out-dir", default=None, help="override the figure directory")
     a = ap.parse_args(argv)
+    global OUT
+    if a.out_dir:
+        OUT = Path(a.out_dir)
     house_style()
     A = json.load(open(a.analysis))
     print(f"figures from {a.analysis} ({A['n_days']} test days, {A['period'][0]}..{A['period'][1]})")
@@ -184,8 +189,52 @@ def main(argv=None):
     R2_intensity_distribution(A)
     R3_storm_events(A)
     R4_seasonal(A)
+    if a.gauge:
+        G = json.load(open(a.gauge))
+        R5_gauge_events(G, ["AORC"] + [n for n in STYLE if n in G["summary"]])
     print("done ->", OUT)
 
+
+
+
+def R5_gauge_events(G, out_names):
+    """Independent gauge check: peak capture per storm, and overall error.
+
+    AORC is plotted alongside the products, not as a reference line, because
+    the comparison that matters is whether the gap between a product and the
+    gauges is larger than the gap between AORC and the gauges. Where AORC sits
+    near 1.0 and the products near 0.2, the shortfall is the model's and not an
+    artefact of scoring against an analysis.
+    """
+    ev = G["events"]
+    days = list(ev)
+    names = [n for n in out_names if n in G["summary"]]
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 2.4))
+
+    ax = axes[0]
+    x = np.arange(len(days)); w = 0.8 / len(names)
+    for i, n in enumerate(names):
+        c = "black" if n == "AORC" else STYLE.get(n, (GREY, "o"))[0]
+        ax.bar(x + i * w - 0.4 + w / 2, [ev[d][n]["peak_ratio"] for d in days],
+               width=w, color=c, label=n)
+    ax.axhline(1.0, color="black", lw=0.9, ls="--", zorder=0)
+    ax.set_xticks(x); ax.set_xticklabels(days, rotation=45, ha="right", fontsize=5.4)
+    ax.set_ylabel("peak / gauge peak")
+    ax.set_ylim(0, 1.25)
+    ax.legend(frameon=False, fontsize=5.6, ncol=3, loc="upper center", handlelength=1.1)
+
+    ax = axes[1]
+    vals = [G["summary"][n]["median_rmse"] for n in names]
+    cols = ["black" if n == "AORC" else STYLE.get(n, (GREY, "o"))[0] for n in names]
+    ax.bar(range(len(names)), vals, color=cols, width=0.65)
+    ax.set_xticks(range(len(names)))
+    ax.set_xticklabels(names, rotation=45, ha="right")
+    ax.set_ylabel("median per-station RMSE (mm day$^{-1}$)")
+    ax.set_ylim(0, max(vals) * 1.18)
+    for ax, L in zip(axes, "ab"):
+        panel(ax, L)
+    fig.tight_layout()
+    save(fig, "R5_gauge_events", f"gauge check, {G['n_stations']} stations")
 
 if __name__ == "__main__":
     main()

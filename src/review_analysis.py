@@ -52,13 +52,18 @@ def load_products(cfg: dict, spec: list[str], box) -> dict[str, xr.DataArray]:
     return out
 
 
-def event_metrics(p: np.ndarray, o: np.ndarray) -> dict:
-    """Scores for a single day, on the cells where both are valid."""
+def event_metrics(p: np.ndarray, o: np.ndarray, heavy: float = HEAVY) -> dict:
+    """Scores for a single day, on the cells where both are valid.
+
+    ``heavy`` is the detection threshold. 30 mm is the Austin convention and
+    does not travel: over the Front Range it is 6.7x rarer, and POD/FAR/CSI
+    there describe the threshold rather than the model.
+    """
     m = np.isfinite(p) & np.isfinite(o)
     if not m.any():
         return {}
     d = p[m] - o[m]
-    pe, oe = p[m] >= HEAVY, o[m] >= HEAVY
+    pe, oe = p[m] >= heavy, o[m] >= heavy
     hits, miss, fa = int((pe & oe).sum()), int((~pe & oe).sum()), int((pe & ~oe).sum())
     return {
         "rmse": float(np.sqrt((d ** 2).mean())),
@@ -116,6 +121,9 @@ def main(argv=None):
     ap.add_argument("--product", action="append", default=[], metavar="NAME=PATH[,PATH]")
     ap.add_argument("--out", default="results/review")
     ap.add_argument("--n-events", type=int, default=3)
+    ap.add_argument("--heavy", type=float, default=HEAVY, help="detection threshold in mm")
+    ap.add_argument("--match-exceedance", type=float, default=None, metavar="RATE",
+                    help="pick the threshold whose observed exceedance equals RATE")
     a = ap.parse_args(argv)
     setup_logging()
 
@@ -132,12 +140,17 @@ def main(argv=None):
     print(f"reference {obs.shape}; products: {', '.join(prods)}", flush=True)
 
     o = obs.values.astype(np.float32)
+    heavy = a.heavy
+    if a.match_exceedance is not None:
+        fin = o[np.isfinite(o)]
+        heavy = float(np.quantile(fin, 1.0 - a.match_exceedance))
+        print(f"matched exceedance {a.match_exceedance:.3e} -> threshold {heavy:.2f} mm", flush=True)
     dates = np.array([str(t)[:10] for t in obs["time"].values])
     months = np.array([int(str(t)[5:7]) for t in obs["time"].values])
     valid = np.isfinite(o)
 
     out = {"period": [dates[0], dates[-1]], "n_days": int(len(dates)),
-           "training_ends": cfg["time"]["train_end"], "heavy_mm": HEAVY,
+           "training_ends": cfg["time"]["train_end"], "heavy_mm": heavy,
            "events": pick_events(obs, a.n_events)}
 
     # ---- per-event scores -------------------------------------------------
@@ -148,7 +161,7 @@ def main(argv=None):
             rec = {"kind": kind, "obs_mean": float(np.nanmean(o[i])),
                    "obs_max": float(np.nanmax(o[i])), "products": {}}
             for name, da in prods.items():
-                rec["products"][name] = event_metrics(da.values[i].astype(np.float32), o[i])
+                rec["products"][name] = event_metrics(da.values[i].astype(np.float32), o[i], heavy)
             out["event_scores"][d] = rec
         print(f"  scored {len(days)} {kind} events", flush=True)
 
@@ -164,7 +177,7 @@ def main(argv=None):
         sel = np.isin(months, mm)
         rec = {"n_days": int(sel.sum()), "obs_mean": float(np.nanmean(o[sel])), "products": {}}
         for name, da in prods.items():
-            rec["products"][name] = event_metrics(da.values[sel].astype(np.float32), o[sel])
+            rec["products"][name] = event_metrics(da.values[sel].astype(np.float32), o[sel], heavy)
         out["seasonal"][season] = rec
         print(f"  {season}: {int(sel.sum())} days", flush=True)
 
