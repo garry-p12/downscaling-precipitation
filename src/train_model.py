@@ -141,6 +141,17 @@ def train_coarse_stage(cfg: dict, grids: GridPair) -> dict:
     y_val = np.load(proc / "y_val.npy")
     idx_train = np.load(proc / "idx_train.npz")
     names = coarse_feature_names(cfg)
+    # The matrix on disk is whatever the last successful `features` run wrote.
+    # If that run failed, or ran under a different config, training still
+    # succeeds here and silently labels the stale columns with the current
+    # config's names -- which is how an A/B once produced two identical scores
+    # and two different "top features" lists, neither of them meaningful.
+    if X_train.shape[1] != len(names):
+        raise SystemExit(
+            f"feature matrix has {X_train.shape[1]} columns but this config expects "
+            f"{len(names)} ({', '.join(names)}).\n"
+            f"X_train.npy in {proc} was written by a different feature set -- rerun "
+            f"`main.py --config <cfg> features` and check it succeeds.")
     model_type = mcfg.get("type", "xgb")
     params = mcfg.get("params" if model_type != "rf" else "rf_params", {})
 
