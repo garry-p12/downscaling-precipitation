@@ -36,35 +36,45 @@ def save(fig, name, caption):
 
 
 def R1_metric_comparison(A, scores, out_names):
-    """Headline metrics per product, with seed spread where it exists.
+    """Headline metrics per product, as dots with 95 % day-block bootstrap intervals.
 
-    The point of the error bars is that several of these differences are inside
-    the seed spread and should not be read as a ranking.
+    Dots rather than bars. A bar encodes magnitude from zero, so on RMSE -- where
+    the five products span 4.58 to 4.81 on an axis that must start at 0 -- every
+    bar looks identical and the figure says nothing. A dot plot carries no
+    zero-baseline obligation, so the axis can show the range that exists, and the
+    interval is what decides whether a gap is a result or a resampling artefact.
     """
-    fig, axes = plt.subplots(1, 4, figsize=(W2, 2.0))
-    panels = [("rmse", "RMSE (mm day$^{-1}$)", False),
-              ("pod", "POD, >30 mm", True),
-              ("csi", "CSI, >30 mm", True),
-              ("spectral_ratio_sub10km", "sub-10 km power ratio", True)]
-    for ax, (key, label, higher) in zip(axes, panels):
-        names = [n for n in out_names if n in scores and key in scores[n]]
-        vals = [scores[n][key] for n in names]
-        cols = [STYLE.get(n, (GREY, "o"))[0] for n in names]
-        err = [scores[n].get(f"{key}_sd", 0.0) for n in names]
-        ax.bar(range(len(names)), vals, color=cols, width=0.68,
-               yerr=err if any(err) else None, capsize=2,
-               error_kw=dict(lw=0.7, ecolor="#333333"))
+    panels = [("rmse", "RMSE (mm day$^{-1}$)", "lower is better"),
+              ("pod", "POD, >30 mm", "higher is better"),
+              ("csi", "CSI, >30 mm", "higher is better"),
+              ("spectral_ratio_sub10km", "sub-10 km power ratio", "1.0 is correct")]
+    names = [n for n in out_names if n in scores]
+    fig, axes = plt.subplots(1, 4, figsize=(W2, 2.4))
+    y = np.arange(len(names))[::-1]
+    for ax, (key, label, note) in zip(axes, panels):
+        for yy, n in zip(y, names):
+            v = scores[n][key]
+            c, m = STYLE.get(n, (GREY, "o"))
+            ci = scores[n].get("ci", {}).get(key)
+            if ci:
+                ax.plot(ci, [yy, yy], color=c, lw=1.4, solid_capstyle="butt", alpha=0.55)
+            ax.scatter(v, yy, color=c, marker=m, s=38, zorder=5,
+                       edgecolor="white", linewidth=0.6)
+            ax.annotate(f"{v:.3g}", (v, yy), textcoords="offset points",
+                        xytext=(0, 7), fontsize=5.6, ha="center", color="#222222")
         if key == "spectral_ratio_sub10km":
-            # 1.0 is correct texture, not "more is better".
-            ax.axhline(1.0, color=GREY, lw=0.8, ls="--", zorder=0)
-        ax.set_xticks(range(len(names)))
-        ax.set_xticklabels(names, rotation=45, ha="right")
-        ax.set_ylabel(label)
-        ax.margins(x=0.08)
+            ax.axvline(1.0, color=GREY, lw=0.8, ls="--", zorder=0)
+        ax.set_yticks(y); ax.set_yticklabels(names if ax is axes[0] else [])
+        ax.set_xlabel(label)
+        ax.set_title(note, fontsize=5.8, color=GREY, pad=2)
+        ax.set_ylim(-0.6, len(names) - 0.4)
+        ax.margins(x=0.16)   # room for the value label above the leftmost dot
+        ax.grid(axis="x", color=GREY_L, lw=0.4, alpha=0.5, zorder=0)
+        ax.set_axisbelow(True)
     for ax, L in zip(axes, "abcd"):
-        panel(ax, L)
+        panel(ax, L, dx=-0.08)
     fig.tight_layout()
-    save(fig, "R1_metric_comparison", "headline metrics per product")
+    save(fig, "R1_metric_comparison", "headline metrics, 95 % CI")
 
 
 def R2_intensity_distribution(A):
@@ -363,22 +373,42 @@ def R8_error_budget(scores, names):
            width=0.6, color=ORANGE, label="10 km $\\rightarrow$ 1 km step")
     ax.set_xticks(x); ax.set_xticklabels(names, rotation=45, ha="right")
     ax.set_ylabel("RMSE (mm day$^{-1}$)")
-    ax.legend(frameon=False, fontsize=6, loc="lower right")
+    # Above the bars, not inside them: the blue swatch was unreadable against
+    # the blue block it sat on.
+    ax.legend(frameon=False, fontsize=5.8, loc="upper center",
+              bbox_to_anchor=(0.5, 1.16), ncol=2, handlelength=1.2, columnspacing=1.0)
+    ax.set_ylim(0, max(tot) * 1.08)
+    for xi, (c, t) in enumerate(zip(c10, tot)):
+        ax.annotate(f"{100 * c ** 2 / t ** 2:.0f}%", (xi, c / 2), ha="center",
+                    va="center", fontsize=5.6, color="white")
 
     ax = axes[1]
-    for n in names:
+    # Stagger the labels: four of the five products sit within 0.08 mm of each
+    # other on both axes, so a fixed offset overprints them.
+    xs0 = [scores[n]["rmse_10km"] for n in names]
+    # Four of five products sit within 0.08 mm of each other on both axes. Fan
+    # the labels out and draw a leader to each marker: without one, a label
+    # placed clear of its own point lands nearer a neighbour's and mislabels it.
+    offs = [(-30, 26), (-34, -22), (24, 30), (26, -26), (34, 10)]
+    for rank, i in enumerate(np.argsort(xs0)):
+        n = names[i]
         c, m = STYLE.get(n, (GREY, "o"))
-        ax.scatter(scores[n]["rmse_10km"], scores[n]["rmse_downscale"],
-                   color=c, marker=m, s=46, zorder=5, edgecolor="white", linewidth=0.6)
-        ax.annotate(n, (scores[n]["rmse_10km"], scores[n]["rmse_downscale"]),
-                    textcoords="offset points", xytext=(5, 4), fontsize=6, color="#222222")
+        xv, yv = scores[n]["rmse_10km"], scores[n]["rmse_downscale"]
+        ax.scatter(xv, yv, color=c, marker=m, s=46, zorder=5,
+                   edgecolor="white", linewidth=0.6)
+        dx, dy = offs[rank % len(offs)]
+        ax.annotate(n, (xv, yv), textcoords="offset points", xytext=(dx, dy),
+                    fontsize=6, color="#222222", zorder=6,
+                    ha="left" if dx > 0 else "right", va="center",
+                    arrowprops=dict(arrowstyle="-", color=GREY, lw=0.5,
+                                    shrinkA=1, shrinkB=4))
     ax.set_xlabel("coarse-field error (mm day$^{-1}$)")
     ax.set_ylabel("downscaling error (mm day$^{-1}$)")
     # Equal spans on both axes, so the eye compares the two terms honestly
     # rather than through two different zooms.
     xs = [scores[n]["rmse_10km"] for n in names]
     ys = [scores[n]["rmse_downscale"] for n in names]
-    span = max(max(xs) - min(xs), max(ys) - min(ys)) * 1.9 + 1e-6
+    span = max(max(xs) - min(xs), max(ys) - min(ys)) * 2.6 + 1e-6
     ax.set_xlim(np.mean(xs) - span / 2, np.mean(xs) + span / 2)
     ax.set_ylim(np.mean(ys) - span / 2, np.mean(ys) + span / 2)
     for ax, L in zip(axes, "ab"):
@@ -388,34 +418,43 @@ def R8_error_budget(scores, names):
 
 
 def R9_quantile_quantile(A, names):
-    """Q-Q against AORC: predicted quantile versus observed, on log axes.
+    """Tail shortfall as a ratio: predicted quantile divided by observed.
 
-    R2 shows the distributions; this shows the *mapping* between them, where a
-    systematic shortfall is a departure from the 1:1 line rather than a gap
-    between two curves the eye has to subtract.
+    A conventional Q-Q on log-log axes was the obvious form and the wrong one
+    here. Over 5-150 mm the points sit almost on the 1:1 line, the deviation
+    that matters is a few per cent of the plotted range, and forcing an equal
+    aspect on log axes left most of the panel empty. Plotting the ratio puts
+    the shortfall on its own axis, where 1.0 is correct and the decline from
+    the median to the extreme is the whole message.
     """
     D = A["distribution"]
-    qs = ["0.5", "0.9", "0.99", "0.999", "0.9999"]
-    obs = [D["AORC"]["quantiles"][q] for q in qs]
-    fig, ax = plt.subplots(figsize=(W1 * 1.35, W1 * 1.35))
-    lo, hi = 0.6 * min(obs), 1.6 * max(obs)
-    ax.plot([lo, hi], [lo, hi], color="black", lw=1.0, ls="--", zorder=1, label="1:1")
+    # The median is omitted: over half the cells are dry, so AORC's median is
+    # 0 mm and the ratio is undefined. Plotting it left an empty column.
+    qs = ["0.9", "0.99", "0.999", "0.9999"]
+    lab = ["q90", "q99", "q99.9", "q99.99"]
+    obs = np.array([D["AORC"]["quantiles"][q] for q in qs])
+    assert (obs > 0).all(), "a reference quantile is zero; the ratio is undefined"
+    x = np.arange(len(qs))
+    fig, ax = plt.subplots(figsize=(W1 * 1.7, 2.4))
+    ax.axhline(1.0, color="black", lw=1.0, ls="--", zorder=1)
+    ax.annotate("AORC", (0, 1.0), textcoords="offset points", xytext=(2, 4),
+                fontsize=5.8, va="bottom", ha="left", color="#222222")
     for n in names:
         if n not in D:
             continue
         c, m = STYLE.get(n, (GREY, "o"))
-        ax.plot(obs, [D[n]["quantiles"][q] for q in qs], color=c, marker=m,
-                ms=4.5, lw=1.0, label=n, zorder=4)
-    for o, q in zip(obs, qs):
-        ax.annotate(f"q{float(q) * 100:g}".rstrip("0").rstrip("."), (o, lo * 1.08),
-                    fontsize=5.2, color=GREY, ha="center")
-    ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
-    ax.set_xlabel("AORC quantile (mm)"); ax.set_ylabel("predicted quantile (mm)")
-    ax.set_aspect("equal")
-    ax.legend(frameon=False, fontsize=6, loc="upper left")
+        r = np.array([D[n]["quantiles"][q] for q in qs]) / obs
+        ax.plot(x, r, color=c, marker=m, ms=4.5, lw=1.2, label=n, zorder=4)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{l}\n{o:.0f} mm" for l, o in zip(lab, obs)], fontsize=6)
+    ax.set_ylabel("predicted / observed")
+    ax.set_xlabel("AORC quantile")
+    ax.set_xlim(-0.3, len(qs) - 0.7)
+    ax.grid(axis="y", color=GREY_L, lw=0.4, alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=6, ncol=2, loc="lower left")
     fig.tight_layout()
-    save(fig, "R9_quantile_quantile", "predicted vs observed quantiles")
+    save(fig, "R9_quantile_ratio", "tail shortfall against quantile")
 
 
 def R10_metric_heatmap(scores, names):
