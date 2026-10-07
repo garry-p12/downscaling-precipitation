@@ -202,6 +202,15 @@ def main(argv=None):
         da = xr.open_dataset(path)["precipitation"].sel(time=sl)
         if box:
             da = subset_box(da, box)
+        if da.shape != o.shape:
+            # Silently scoring a short product against the first N reference
+            # days produces a plausible number for a different period, which is
+            # worse than failing: a one-year file compared against a two-year
+            # reference once sat in a table beside two-year products.
+            raise SystemExit(
+                f"{name}: shape {da.shape} does not match the reference {o.shape}. "
+                f"Pass every year of the product (comma-separate paths), or slice "
+                f"the reference to match.")
         acc = accumulate(da.values.astype(np.float32), o, heavy,
                          factor=None if a.no_coarse else grids.factor)
         accs[name] = acc
