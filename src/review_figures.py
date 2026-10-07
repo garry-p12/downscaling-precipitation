@@ -22,7 +22,9 @@ from .publication_figures import (BLUE, GREEN, GREY, GREY_L, ORANGE, PURPLE, VER
 OUT = Path("results/figures/review")
 
 STYLE = {"XGBoost": (BLUE, "D"), "CNN": (GREEN, "^"), "Swin": (ORANGE, "v"),
-         "Diffusion": (VERM, "P"), "Stacked": (PURPLE, "X"), "Bilinear": (GREY, "s")}
+         "Diffusion": (VERM, "P"), "Stacked": (PURPLE, "X"), "Bilinear": (GREY, "s"),
+         # Colorado carries the spectral-penalty variant instead of Swin/diffusion.
+         "CNN+E": (ORANGE, "*")}
 
 
 def save(fig, name, caption):
