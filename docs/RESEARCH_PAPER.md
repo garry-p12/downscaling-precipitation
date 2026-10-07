@@ -309,6 +309,63 @@ Stage 2 is gated: `upsampling.method: auto` adopts the residual model only if it
 bilinear by more than 0.5 % on a training-tail hold-out. The gate can be restricted to a
 season via `model.fine.months`, which §5.5 uses.
 
+#### Why these four families
+
+The set is not a survey. It is one representative of each hypothesis about *where*
+1 km structure comes from, so that a negative result identifies which hypothesis
+failed rather than which implementation was weaker.
+
+**Interpolation (bilinear) — the null.** Statistical downscaling is only worth doing if
+it beats spreading the coarse value out, and that comparison is routinely omitted or
+run against a weaker baseline such as nearest neighbour. Making every model
+`bilinear(coarse) + correction` with a zero-initialised head turns the comparison into
+an identity: an untrained network *is* the baseline, so a reported gain cannot be an
+artefact of tuning one side. This follows the residual framing standard in
+super-resolution since VDSR (Kim et al., 2016).
+
+**Gradient-boosted trees — the "it is a point-wise bias problem" hypothesis.** If 1 km
+rainfall is mostly the coarse value times a local, terrain- and land-cover-dependent
+factor, a tabular learner on per-cell predictors is the right tool and a convolutional
+one is unnecessary. Boosted trees are the established strong baseline on tabular
+problems (Chen & Guestrin, 2016; Grinsztajn et al., 2022, who show they still match or
+beat deep models there), and they dominate operational statistical downscaling and
+bias-correction work for precisely this reason. The two-stage split — correct the 10 km
+field, then optionally add 1 km detail — mirrors the classical bias-correction /
+disaggregation decomposition, and lets us test the two steps separately, which §4 uses
+to show the second contributes 2.5 % of the error.
+
+**CNN (U-Net) — the "it is a spatial pattern problem" hypothesis.** If the missing
+detail is a function of the *neighbourhood* rather than the cell, a convolutional model
+should beat trees. The U-Net (Ronneberger et al., 2015) is the standard encoder-decoder
+for dense prediction, and SRCNN (Dong et al., 2016) established that convolutional
+super-resolution transfers to geophysical fields; DeepSD (Vandal et al., 2017) applied
+that directly to precipitation downscaling, and it remains the reference point this
+family is compared against.
+
+**Swin transformer — the "it needs long-range context" hypothesis.** Convolutions have a
+bounded receptive field, while orographic rainfall depends on flow interacting with
+terrain tens of kilometres upstream. Shifted-window attention (Liu et al., 2021) buys
+that context at tractable cost, and SwinIR (Liang et al., 2021) is its standard
+restoration form. Transformers are now common in downscaling and nowcasting
+(e.g. Earthformer, Gao et al., 2022), so a capacity-matched member of this family
+guards against the objection that the CNN simply could not see far enough.
+
+**Residual diffusion — the "the conditional mean is the wrong estimator" hypothesis.**
+Every model above minimises a per-cell loss, and a per-cell loss is minimised by the
+conditional mean, which is smoother than any real rain field. That is a property of the
+objective, not of the architecture, so no amount of capacity fixes it. Diffusion models
+sample the conditional *distribution* instead (Ho et al., 2020; Song et al., 2021), and
+CorrDiff (Mardani et al., 2025, *Nature*) showed the residual-diffusion form generating
+kilometre-scale weather with realistic structure. Ours follows that design — a
+conditional DDPM over the residual from a frozen deterministic mean — and is what lets
+§4.2 separate "accurate" from "realistic", which the deterministic members cannot.
+
+The ordering is deliberate: each family relaxes one assumption of the previous one, so
+the comparison measures the assumption rather than the code. The result reported in §5.1
+— that capacity and architecture barely matter, while *information* does — is only
+interpretable because the families differ in what they assume rather than in how hard
+they were tuned.
+
 ### 3.4 Training protocol
 
 Patch size 96, batch 32, AdamW at 2 × 10⁻⁴ with 500-step warmup and cosine decay, EMA
@@ -1479,3 +1536,57 @@ publication by F1–F8 but still cover material without a publication counterpar
 ## Appendix B. Metric definitions
 
 See [METRICS.md](METRICS.md) for formulas, units, ranges and the acronym glossary.
+
+---
+
+## References
+
+Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system. *KDD '16*,
+785–794.
+
+Dong, C., Loy, C. C., He, K., & Tang, X. (2016). Image super-resolution using deep
+convolutional networks. *IEEE TPAMI*, 38(2), 295–307.
+
+Ebert, E. E. (2001). Ability of a poor man's ensemble to predict the probability and
+distribution of precipitation. *Monthly Weather Review*, 129(10), 2461–2480.
+
+Gao, Z., Shi, X., Wang, H., Zhu, Y., Wang, Y., Li, M., & Yeung, D.-Y. (2022).
+Earthformer: Exploring space-time transformers for Earth system forecasting.
+*NeurIPS 35*, 25390–25403.
+
+Grinsztajn, L., Oyallon, E., & Varoquaux, G. (2022). Why do tree-based models still
+outperform deep learning on typical tabular data? *NeurIPS Datasets and Benchmarks*.
+
+Ho, J., Jain, A., & Abbeel, P. (2020). Denoising diffusion probabilistic models.
+*NeurIPS 33*, 6840–6851.
+
+Kim, J., Lee, J. K., & Lee, K. M. (2016). Accurate image super-resolution using very
+deep convolutional networks. *CVPR*, 1646–1654.
+
+Liang, J., Cao, J., Sun, G., Zhang, K., Van Gool, L., & Timofte, R. (2021). SwinIR:
+Image restoration using Swin transformer. *ICCV Workshops*, 1833–1844.
+
+Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., & Guo, B. (2021). Swin
+transformer: Hierarchical vision transformer using shifted windows. *ICCV*, 10012–10022.
+
+Mardani, M., Brenowitz, N., Cohen, Y., Pathak, J., Chen, C.-Y., Liu, C.-C., Vahdat, A.,
+Nabian, M. A., Ge, T., Subramaniam, A., Kashinath, K., Kautz, J., & Pritchard, M.
+(2025). Residual corrective diffusion modeling for km-scale atmospheric downscaling.
+*Nature*, 639, 1157–1164.
+
+Roberts, N. M., & Lean, H. W. (2008). Scale-selective verification of rainfall
+accumulations from high-resolution forecasts of convective events. *Monthly Weather
+Review*, 136(1), 78–97.
+
+Ronneberger, O., Fischer, P., & Brox, T. (2015). U-Net: Convolutional networks for
+biomedical image segmentation. *MICCAI*, 234–241.
+
+Song, Y., Sohl-Dickstein, J., Kingma, D. P., Kumar, A., Ermon, S., & Poole, B. (2021).
+Score-based generative modeling through stochastic differential equations. *ICLR*.
+
+Subich, C., Husain, S. Z., Separovic, L., & Yang, J. (2025). Fixing the double penalty
+in data-driven weather forecasting through a modified spectral loss. *ICML*.
+
+Vandal, T., Kodra, E., Ganguly, S., Michaelis, A., Nemani, R., & Ganguly, A. R. (2017).
+DeepSD: Generating high resolution climate change projections through single image
+super-resolution. *KDD '17*, 1663–1672.
