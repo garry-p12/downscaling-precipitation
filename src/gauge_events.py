@@ -84,7 +84,20 @@ def main(argv=None):
     cache.mkdir(parents=True, exist_ok=True)
     y0, y1 = int(t0[:4]), int(t1[:4])
     st = stations_in_domain(grids, y0, y1)
-    print(f"{len(st)} stations in domain; products: {', '.join(prods)}", flush=True)
+    # stations_in_domain works from the model grid, which can be larger than the
+    # box we actually score: the POWER arm covers 840x720 fine cells while its
+    # evaluation box is 420x360. A station outside the box still finds a
+    # "nearest" cell -- the nearest edge cell -- and contributes a comparison
+    # between a gauge and a grid point tens of kilometres away.
+    la, lo = np.asarray(obs["lat"]), np.asarray(obs["lon"])
+    lat0, lat1 = float(min(la)), float(max(la))
+    lon0, lon1 = float(min(lo)), float(max(lo))
+    inside = [(sid, y, x) for sid, y, x in st if lat0 <= y <= lat1 and lon0 <= x <= lon1]
+    if len(inside) != len(st):
+        print(f"dropped {len(st) - len(inside)} stations outside the evaluation box "
+              f"[{lon0:.2f},{lat0:.2f},{lon1:.2f},{lat1:.2f}]", flush=True)
+    st = inside
+    print(f"{len(st)} stations in the scored box; products: {', '.join(prods)}", flush=True)
 
     times = pd.to_datetime(obs["time"].values)
     tindex = {t: k for k, t in enumerate(times)}
