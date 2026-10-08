@@ -180,7 +180,38 @@ def main(argv=None):
                for n in names},
         }
 
+    # Daily series across the gauge network, which the per-event summaries
+    # cannot show: whether error is steady, seasonal, or concentrated in a few
+    # storms is a question about time, and a bar chart per event cannot answer
+    # it. Averaged over the stations reporting each day, so the series is not
+    # contaminated by the network thinning in winter.
+    daily = {"date": [str(t)[:10] for t in times], "n": [], "gauge": [],
+             **{n: [] for n in ["AORC"] + list(prods)}}
+    gm = np.full((len(rows), len(times)), np.nan, np.float32)
+    pm = {n: np.full((len(rows), len(times)), np.nan, np.float32) for n in ["AORC"] + list(prods)}
+    for r_i, r in enumerate(rows):
+        i, j = nearest_cell(obs, r["lat"], r["lon"])
+        df = fetch_station(r["sid"], y0, y1, cache)
+        g = df["mm"].reindex(times + pd.Timedelta(days=r["shift"])).values
+        gm[r_i] = g
+        pm["AORC"][r_i] = obs.values[:, i, j]
+        for n, da in prods.items():
+            pm[n][r_i] = da.values[:, i, j]
+    with np.errstate(invalid="ignore"):
+        ok = np.isfinite(gm)
+        daily["n"] = ok.sum(axis=0).astype(int).tolist()
+        daily["gauge"] = np.where(ok.any(0), np.nanmean(np.where(ok, gm, np.nan), axis=0), np.nan).tolist()
+        for n in ["AORC"] + list(prods):
+            v = np.where(ok, pm[n], np.nan)
+            daily[n] = np.where(ok.any(0), np.nanmean(v, axis=0), np.nan).tolist()
+            # Daily RMSE across the reporting stations, the quantity a time
+            # series of "how wrong was it today" actually needs.
+            d2 = np.where(ok, (pm[n] - gm) ** 2, np.nan)
+            daily[f"{n}_rmse"] = np.sqrt(np.where(ok.any(0), np.nanmean(d2, axis=0), np.nan)).tolist()
+    print(f"daily series: {len(times)} days, median {int(np.median(daily['n']))} stations/day", flush=True)
+
     out = {"period": [t0, t1], "n_stations": kept, "shift_counts": shift_counts,
+           "daily": daily,
            "summary": summary, "events": ev_summary,
            "caveats": ["GHCN-D day ends at a local observation hour; per-station shift applied",
                        "gauge is a point, grid cell is an area",

@@ -209,7 +209,10 @@ def main(argv=None):
     R4_seasonal(A)
     if a.gauge:
         G = json.load(open(a.gauge))
-        R5_gauge_events(G, ["AORC"] + [n for n in STYLE if n in G["summary"]])
+        nm = ["AORC"] + [n for n in STYLE if n in G["summary"]]
+        R5_gauge_events(G, nm)
+        if "daily" in G:
+            R11_gauge_timeseries(G, nm, events=list(G.get("events", {})))
     print("done ->", OUT)
 
 
@@ -494,6 +497,83 @@ def R10_metric_heatmap(scores, names):
     cb.ax.tick_params(labelsize=5.5)
     fig.tight_layout()
     save(fig, "R10_metric_heatmap", "all metrics, normalised per row")
+
+
+def R11_gauge_timeseries(G, out_names, events=()):
+    """Error against the gauge network through time, and around the storms.
+
+    The per-event bars say how each storm scored; they cannot say whether error
+    is steady, seasonal, or concentrated in a handful of days. That is a
+    question about time and needs a series.
+
+    Panel (a) is daily RMSE across the reporting stations, smoothed over 15
+    days so the seasonal shape is visible, with the raw series behind it. Panel
+    (b) is a 15-day window around the wettest storm, unsmoothed, because the
+    question there is whether the products track a single event day by day.
+
+    Read panel (b) with the observation hour in mind. Where the products and
+    AORC agree with each other and both differ from the gauges on a single day,
+    that is the gauge network splitting a storm across the day boundary
+    differently from UTC, not a model error -- the per-station shift corrects
+    each station, but a network mean can still smear an event across two days.
+    """
+    d = G["daily"]
+    t = np.array(d["date"], dtype="datetime64[D]")
+    names = [n for n in out_names if f"{n}_rmse" in d]
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 2.5),
+                             gridspec_kw={"width_ratios": [1.9, 1]})
+
+    ax = axes[0]
+    w = 15
+    for n in names:
+        v = np.array(d[f"{n}_rmse"], dtype=float)
+        c = "black" if n == "AORC" else STYLE.get(n, (GREY, "o"))[0]
+        ax.plot(t, v, color=c, lw=0.35, alpha=0.22)
+        # Centred rolling mean, NaN-aware: the network thins in winter and a
+        # plain convolution would propagate those gaps across a fortnight.
+        k = np.ones(w) / w
+        ok = np.isfinite(v)
+        num = np.convolve(np.where(ok, v, 0.0), k, mode="same")
+        den = np.convolve(ok.astype(float), k, mode="same")
+        ax.plot(t, np.where(den > 0.5, num / np.maximum(den, 1e-9), np.nan),
+                color=c, lw=1.3, label=n)
+    ax.set_ylabel("daily RMSE vs gauges (mm)")
+    ax.set_xlabel("")
+    ax.legend(frameon=False, fontsize=5.8, ncol=3, loc="upper left")
+    ax.tick_params(axis="x", labelrotation=30, labelsize=5.6)
+
+    ax = axes[1]
+    # Pick the wettest event that has a full window either side. The wettest
+    # day overall was 2020-12-31, the last day of the record, which gave a
+    # one-sided window that showed the storm arriving and never leaving.
+    pad = np.timedelta64(7, "D")
+    g = np.array(d["gauge"], dtype=float)
+    cand = [e for e in events if t[0] + pad <= np.datetime64(e, "D") <= t[-1] - pad]
+    if cand:
+        ev = max(cand, key=lambda e: g[int(np.where(t == np.datetime64(e, "D"))[0][0])])
+    else:
+        inner = np.where((t >= t[0] + pad) & (t <= t[-1] - pad))[0]
+        ev = d["date"][int(inner[np.nanargmax(g[inner])])]
+    c0 = np.datetime64(ev, "D")
+    m = (t >= c0 - pad) & (t <= c0 + pad)
+    ax.plot(t[m], np.array(d["gauge"], dtype=float)[m], color="black", lw=1.6,
+            marker="o", ms=3, label="gauges", zorder=5)
+    for n in names:
+        if n == "AORC":
+            continue
+        c, mk = STYLE.get(n, (GREY, "o"))
+        ax.plot(t[m], np.array(d[n], dtype=float)[m], color=c, lw=1.0, marker=mk, ms=3, label=n)
+    ax.plot(t[m], np.array(d["AORC"], dtype=float)[m], color=GREY, lw=1.0, ls="--", label="AORC")
+    ax.axvline(c0, color=GREY_L, lw=0.8, ls=":", zorder=0)
+    ax.set_ylabel("network-mean rainfall (mm day$^{-1}$)")
+    ax.set_title(f"{ev}, $\\pm$7 days", fontsize=6.5, color=GREY, pad=3)
+    ax.tick_params(axis="x", labelrotation=40, labelsize=5.2)
+    ax.set_ylim(top=float(np.nanmax(np.array(d["gauge"], dtype=float)[m])) * 1.75)
+    ax.legend(frameon=False, fontsize=5.4, ncol=2, loc="upper right")
+    for ax, L in zip(axes, "ab"):
+        panel(ax, L, dx=-0.11)
+    fig.tight_layout()
+    save(fig, "R11_gauge_timeseries", "daily error and a storm window")
 
 
 if __name__ == "__main__":
