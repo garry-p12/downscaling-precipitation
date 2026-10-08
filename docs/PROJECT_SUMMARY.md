@@ -178,20 +178,49 @@ the truth less well than the satellite does. But its errors are **different** er
 and its long-run average is almost exactly right where the satellite runs dry. The
 model is not replacing the satellite; it is using a second, independent opinion.
 
-### Training the model to produce realistic texture
+### Training the model to produce realistic texture — the one thing that fixed the fine field
 
-We added a penalty for being too smooth, plus extra weight on heavy-rain cells. Over
-five random starts in Austin:
+We added a penalty for the field being too smooth below 10 km, plus extra weight on
+heavy-rain cells. Both are needed: the smoothness penalty alone *costs* detection, and
+the heavy weighting is what repairs it.
 
-- detection of heavy rain: **+0.065** (a large, consistent effect)
-- error: **−0.004** (no measurable cost)
-- texture: roughly **3× more** fine-scale detail
+Austin, five random starts, each compared against its own matched control:
+
+| | change | consistency |
+|---|---|---|
+| **texture** | **+0.675** | t = +9.0 |
+| heavy rain found (POD) | **+0.065** | t = +19.4 |
+| CSI | +0.021 | t = +8.0 |
+| error | −0.004 | no measurable change |
 
 On the 13 March 2019 Front Range blizzard it captured **69 %** of the peak against
-XGBoost's 48 % — the clearest case of this helping on a real storm.
+XGBoost's 48 % — the clearest case of it helping on a real storm.
 
-**One honest caveat:** on a *perfect* input this penalty makes things slightly worse.
-It is compensating for a bad input rather than adding real skill.
+**Why this matters more than it first looks.** Section 10 shows the sharpening step
+contributes almost nothing *to RMSE*. This is the exception, and it is visible only
+because texture is measured below 10 km where RMSE cannot see it. On a perfect input:
+
+| | error | **texture** | heavy rain found |
+|---|---|---|---|
+| plain CNN | **0.723** | **0.072** | 0.951 |
+| CNN + texture penalty | 0.766 | **0.992** | **0.958** |
+
+The plain CNN produces a field with **7 %** of real rainfall's fine-scale variance.
+With the penalty it produces one with **99 %** — essentially correct — for 0.043 mm of
+error. That is the design goal, met.
+
+**And an honest complication.** When we split its gain into the coarse part and the
+sharpening part, the error and detection improvements land in the **coarse** field; the
+sharpening term does not move at all (Colorado +0.007, POWER 0.000). That is the
+heavy-weighting half doing an intensity recalibration at 10 km. The texture gain is
+genuinely sub-10 km — the measure is defined there — but the RMSE and POD gains are
+not.
+
+**So the fair summary:** it is the only intervention that improved the 1 km field
+itself, and the improvement is in realism rather than in accuracy. If you need a field
+that looks and behaves like rain — input to a hydrology model, or anything where a
+too-smooth field misleads — this is the product. If you only need the lowest number,
+it does not help.
 
 ## 7. Things we tried that did not work
 
@@ -280,6 +309,22 @@ architectures had 10 km → 1 km errors spanning 0.067 mm while their 10 km erro
 spanned 0.195. **They differ as bias correctors, not as downscalers.** And it matches
 the storms: a model that is essentially smoothing a corrected coarse field is exactly
 the kind of model that recovers a fifth of a 284 mm peak.
+
+**One exception, and it is important.** Everything above is measured in RMSE, and the
+texture-penalty model (§6) is the case RMSE cannot see. It takes the fine-scale
+variance of the field from 7 % of reality to 99 % — a change entirely below 10 km,
+which is precisely where RMSE is least sensitive. So the honest statement is narrower
+than "sharpening does nothing":
+
+* **For accuracy**, the sharpening step contributes almost nothing. That holds across
+  two input resolutions, two model families and eight metrics.
+* **For realism**, one intervention works, and only one. Training against the power
+  spectrum produces a field with approximately correct fine-scale structure, at a cost
+  of 0.04 mm.
+
+Whether that matters depends on the use. A catchment total does not care. A hydrology
+model fed a field that is far too smooth, or anyone reading the map as a picture of
+where it rained hard, does.
 
 ## 11. The honest summary
 
