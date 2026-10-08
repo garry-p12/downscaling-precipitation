@@ -57,3 +57,7 @@ run python3 -m src.score_variants --config config_vista.yaml \
     $ARGS --out results/redist/scores.json
 
 if [ $rc -eq 0 ]; then echo "=== ALL OK ==="; else echo "=== FAILED (rc=$rc) ==="; fi
+# Exit with the real status. Ending on the `if` meant the script always
+# returned 0, so SLURM logged COMPLETED for a job whose every step had failed
+# -- two of them finished in 46 seconds and were reported as successes.
+exit $rc

@@ -50,3 +50,7 @@ run $PY -m src.score_variants --config config_colorado_ls6.yaml \
     --match-exceedance 2.023308e-02 --out results/oracle_colorado_scores.json
 
 if [ $rc -eq 0 ]; then echo "=== ALL OK ==="; else echo "=== FAILED (rc=$rc) ==="; fi
+# Exit with the real status. Ending on the `if` meant the script always
+# returned 0, so SLURM logged COMPLETED for a job whose every step had failed
+# -- two of them finished in 46 seconds and were reported as successes.
+exit $rc
