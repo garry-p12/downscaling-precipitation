@@ -268,6 +268,12 @@ def build_model(name: str, n_cond: int, factor: int = 12, **kw) -> nn.Module:
     cin = n_cond + 1  # + bilinear coarse channel
     if name == "cnn":
         return Downscaler(UNet(cin, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))), factor)
+    if name == "cnn_redist":
+        # Mass-conserving sharpener: the block mean is pinned to the input, so
+        # the network can only decide placement. See deep/redistribute.py.
+        from .redistribute import Redistributor
+        return Redistributor(
+            UNet(cin, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))), factor)
     if name == "cnn_bg":
         # Same backbone, three output channels: occurrence logit, log-space
         # residual on bilinear, and gamma shape. See deep/distributional.py.

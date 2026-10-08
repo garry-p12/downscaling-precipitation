@@ -242,7 +242,7 @@ def eval_diffusion_loss(net, diff, mean_model, data, loader, device, amp_dtype, 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", choices=["cnn", "swin", "diffusion", "cnn_bg"], required=True)
+    ap.add_argument("--model", choices=["cnn", "swin", "diffusion", "cnn_bg", "cnn_redist"], required=True)
     ap.add_argument("--bg-wet-mm", type=float, default=0.1,
                     help="rain/no-rain cut for the Bernoulli term of --model cnn_bg")
     ap.add_argument("--data-dir", default="data/processed")
@@ -355,7 +355,7 @@ def main(argv=None):
 
     factor = data.factor
     is_bg = args.model == "cnn_bg"
-    if args.model in ("cnn", "swin", "cnn_bg"):
+    if args.model in ("cnn", "swin", "cnn_bg", "cnn_redist"):
         model = build_model(args.model, data.n_cond, factor, base=args.base, dim=args.dim,
                             depths=(args.depth,) * args.groups, heads=args.heads).to(device)
         if args.init_ckpt:
