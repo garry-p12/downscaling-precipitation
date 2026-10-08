@@ -222,6 +222,50 @@ that looks and behaves like rain — input to a hydrology model, or anything whe
 too-smooth field misleads — this is the product. If you only need the lowest number,
 it does not help.
 
+### Quantile mapping: fixing the numbers without moving the rain
+
+A different kind of fix, applied after training. For each predicted value we
+substitute the observed value at the same rank, using a map fitted on the dev year
+only. It is monotone, so **no cell changes its position in the ordering** — only the
+numbers move. It cannot relocate rain; it can only recalibrate it.
+
+![transfer function](../results/figures/qmap/Q1_transfer_function.png)
+
+The map mostly inflates: every curve sits above the no-change line, because all the
+products under-predict the upper tail.
+
+**It works, but only in proportion to how miscalibrated the product was.**
+
+![gain against bias](../results/figures/qmap/Q2_gain_vs_bias.png)
+
+| product | frequency bias before | CSI gained | RMSE cost |
+|---|---|---|---|
+| XGBoost | **0.74** | **+0.030** | +0.059 |
+| CNN | 0.93 | +0.001 | +0.208 |
+| Swin | 0.98 | −0.001 | +0.083 |
+
+Frequency bias is how often a product forecast heavy rain relative to how often heavy
+rain happened; 1.0 is correct. XGBoost started furthest off and gained the most —
+CSI 0.458 → 0.488 and POD 0.548 → **0.636**, the best detection numbers anywhere in
+this study. Swin was already calibrated at 0.98, gained nothing, and paid the error
+cost anyway.
+
+**So it is a repair, not an improvement.** It is worth applying to a product whose
+frequency bias is well below 1.0, and worth not applying otherwise. That is a useful
+operational rule and it is checkable before you run it.
+
+![where it acts](../results/figures/qmap/Q3_where_it_acts.png)
+
+And splitting its effect puts it on the same side of the ledger as everything else
+that has worked: the change lands in the 10 km field, while the 10 km → 1 km step
+barely moves. That is what a per-cell monotone transform must do — it cannot move rain
+between cells, so it can only alter the distribution.
+
+**One caution.** The map is fitted on a single dev year (2018) and applied to two test
+years that contain wetter days than anything in it. Values above the largest dev-year
+prediction are extrapolated along the final segment rather than clipped, which is the
+right choice but is an assumption about the tail, not a measurement of it.
+
 ## 7. Things we tried that did not work
 
 Recording these matters as much as the successes.
