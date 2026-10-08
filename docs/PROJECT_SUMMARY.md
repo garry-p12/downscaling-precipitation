@@ -241,13 +241,61 @@ against 62 % in Austin. Gauge checks are weaker evidence in mountains.
    give a usable heavy-rain warning without being punished for committing.
 4. **Be careful with gauges in complex terrain**, for the reason in §8.
 
-## 10. The honest summary
+## 10. Does the downscaling actually work?
 
-The downscaling works, and it is close to the limit of what is possible from this
-input. Roughly 92 % of the remaining error was already in the 10 km satellite map
-before we started, and we have confirmed with independent gauges that the models
-genuinely miss storm peaks rather than merely disagreeing with our reference.
+This deserves a direct answer, because "92 % of the error is already in the input"
+and "the downscaling works" cannot both be waved at the same time.
 
-That is not a failure of the method. It is a measurement of where the problem actually
-lives, and it says the next real gains come from a **better 10 km rainfall estimate**,
-not a cleverer way of sharpening a flawed one.
+To separate them we scored plain interpolation with the same split:
+
+| | error at 1 km | error at 10 km | the 10 km → 1 km part |
+|---|---|---|---|
+| raw satellite, blocky | 4.994 | 4.812 | 1.333 |
+| bilinear interpolation | 4.919 | 4.732 | 1.342 |
+| **XGBoost** | **4.583** | **4.397** | **1.295** |
+
+Now split XGBoost's improvement over bilinear into its two parts. Errors add as
+squares, so the shares are taken that way:
+
+| where the improvement comes from | share |
+|---|---|
+| correcting the 10 km map | **96 %** |
+| the 10 km → 1 km step itself | **4 %** |
+
+So three statements, and only the first two are ours to make:
+
+**The product beats interpolation.** 4.583 against 4.919, a 6.8 % reduction on years
+the model never saw. That is real.
+
+**Almost all of it is correcting the coarse map.** What we have built is a good 10 km
+bias-corrector that then interpolates. That is a useful thing and it is not what
+"downscaling" usually means.
+
+**The sharpening step itself adds very little.** It beats bilinear by **0.047 mm** —
+0.9 % of the total error. A perfect sharpener would remove the whole 1.342 mm; we have
+captured **3.5 %** of that.
+
+This also explains something that looked strange earlier. Four very different
+architectures had 10 km → 1 km errors spanning 0.067 mm while their 10 km errors
+spanned 0.195. **They differ as bias correctors, not as downscalers.** And it matches
+the storms: a model that is essentially smoothing a corrected coarse field is exactly
+the kind of model that recovers a fifth of a 284 mm peak.
+
+## 11. The honest summary
+
+We set out to add 1 km detail to a 10 km satellite map. What we have is a system that
+**corrects the 10 km map well and adds little genuine 1 km detail** — and we can now
+say that with a number rather than a suspicion.
+
+That is worth knowing rather than disappointing, for three reasons.
+
+The *product* is better than the alternatives, by a margin that holds up on unseen
+years and against independent gauges. Someone who needs catchment totals should use it.
+
+The limit is now located. 92 % of the remaining error was in the coarse map before we
+started, and the sharpening step has only 1.34 mm available to it in the first place.
+No amount of architecture work reaches past that.
+
+And the one intervention that did move the number — giving the 10 km stage ERA5's own
+rainfall, worth 0.15 mm in Austin and 0.27 mm in the mountains — worked on the 96 %
+side, not the 4 % side. That is the direction with room in it.
