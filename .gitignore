@@ -36,3 +36,19 @@ __pycache__/
 .env
 .DS_Store
 .vscode/
+
+# Written documents: the paper, the summaries, the slide decks and the planning
+# notes. Ignored because they are drafts in progress rather than repository
+# documentation, and a public remote is the wrong place for them until they are
+# finished. They stay on disk; `git rm --cached` is what removed them from the
+# index, since .gitignore alone never untracks a file that is already tracked.
+#
+# The exclamations below keep the files the repository needs to explain and
+# build itself, which would otherwise be swept up by docs/ and *.md.
+docs/*.md
+IMERG_Downscaling_Plan.md
+!README.md
+!web/README.md
+!web/CLAUDE.md
+!web/AGENTS.md
+!results/**/*.md
