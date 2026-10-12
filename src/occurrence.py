@@ -1,5 +1,19 @@
 """Fix the wet/dry field by concentrating the same water into fewer cells.
 
+MEASURED AND REJECTED. On Austin it does what it promises to the wet fraction
+-- 0.359 to 0.279 against an observed 0.280, mass preserved to seven digits --
+and destroys the field doing it. Redistributing a day's water into fewer cells
+multiplies the survivors by total/held, and when few cells clear the cut that
+factor is large: texture went from 2.6 to 10.9 on one arm, 4.9 to 219.7 on
+another, and 0.019 to 532 on XGBoost, while RMSE rose by 0.2 to 4.0 mm. POD
+and CSI did not move at all, so it did not even buy detection.
+
+The synthetic test here passed because it checked wet fraction, mass, a tail
+quantile and NaN handling, and never checked the spectrum -- the one thing the
+operation most obviously threatens. Kept as a documented negative; moving water
+after the fact is the wrong mechanism, and occurrence has to be fixed during
+training, where the model can learn not to put the water there at all.
+
 Two of the three distributional failures are the same failure seen twice. The
 products rain on 57-60 % of cells where reality rains on 28 %, and they reach
 only 66-83 % of the heaviest values. Both follow from hedging: a per-cell loss
