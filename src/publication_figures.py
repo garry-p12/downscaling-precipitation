@@ -49,6 +49,7 @@ PRODUCT_STYLE = {
     "diffusion":        ("Diffusion, mean",   VERM,   "P"),
     "diffusion_member": ("Diffusion, member", PURPLE, "X"),
     "cnn_spectral":     ("CNN + spectral",    SKY,    "*"),
+    "cnn_e":            ("E (shipped)",       BLACK,  "*"),
 }
 
 
@@ -163,6 +164,7 @@ def f3_accuracy_realism():
     aus = load("results/comparison/model_comparison.json")
     pwr = load("results/power/comparison/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
+    struct = load("results/austin_struct/scores.json")
     ctl = load("results/spectral/comparison-spec-ctl/model_comparison.json")
     pspc = load("results/power/comparison-spec-w0.01/model_comparison.json")
     pctl = load("results/power/comparison-spec-w0.0/model_comparison.json")
@@ -174,6 +176,7 @@ def f3_accuracy_realism():
     # overlaps them or drags leader lines across the panel.
     OFF = {
         ("a", "cnn_spectral"):     (7, 0, "left", "center"),
+        ("a", "cnn_e"):            (0, -9, "center", "top"),
         ("a", "cnn_control"):      (7, 6, "left", "bottom"),
         ("a", "cnn"):              (7, -4, "left", "top"),
         ("a", "swin"):             (-7, -4, "right", "top"),
@@ -194,8 +197,11 @@ def f3_accuracy_realism():
     fig, axes = plt.subplots(1, 2, figsize=(W2, 2.9))
     for ax, data, title, letter, extra in (
         (axes[0], aus, "Austin \u2014 IMERG, 10 km input", "a",
-         [("cnn_spectral", spc["products"]["cnn"]["overall"]["rmse"],
-           spc["products"]["cnn"]["spectral_ratio_sub10km"])] if spc else None),
+         ([("cnn_spectral", spc["products"]["cnn"]["overall"]["rmse"],
+            spc["products"]["cnn"]["spectral_ratio_sub10km"])] if spc else [])
+         + ([("cnn_e", struct["E_s1"]["rmse"],
+              struct["E_s1"]["spectral_ratio_sub10km"])] if struct and "E_s1" in struct
+            else [])),
         (axes[1], pwr, "NASA POWER \u2014 50 km input", "b",
          [("cnn_spectral", pspc["products"]["cnn"]["overall"]["rmse"],
            pspc["products"]["cnn"]["spectral_ratio_sub10km"])] if pspc else None),
@@ -240,6 +246,7 @@ def f4_spectra():
     aus = load("results/comparison/model_comparison.json")
     pwr = load("results/power/comparison/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
+    struct = load("results/austin_struct/scores.json")
     if not (aus and pwr):
         print("  F4 skipped")
         return
@@ -411,6 +418,7 @@ def f7_fss():
     """Does the added variance land in the right places?"""
     ctl = load("results/spectral/comparison-spec-ctl/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
+    struct = load("results/austin_struct/scores.json")
     if not (ctl and spc):
         print("  F7 skipped")
         return

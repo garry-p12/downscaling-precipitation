@@ -47,9 +47,14 @@ def main():
         "xgboost": xr.open_mfdataset(["results/downscaled_1km_2019.nc",
                                       "results/downscaled_1km_2020.nc"])["precipitation"].sel(time=sl),
         "cnn":  xr.open_dataset("results/v3/cnn_1km_2019_2020.nc")["precipitation"].sel(time=sl),
-        # same architecture and budget as `cnn`, trained with --spectral-weight 0.01
-        "cnn_spectral": xr.open_dataset(
-            "results/spectral/spec-w001/cnn_spectral_1km_2019_2020.nc")["precipitation"].sel(time=sl),
+        # Same architecture and budget as `cnn`, trained with the spectral
+        # penalty AND heavy-cell weighting. It replaces the spectral-only
+        # variant that used to sit here: that one bought texture at the cost of
+        # heavy-rain detection, and this one does not, so shipping both would
+        # offer a strictly worse option alongside the good one. Seed chosen on
+        # the dev year, not on test.
+        "cnn_e": xr.open_dataset(
+            "results/v4/cnn_E_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "swin": xr.open_dataset("results/v3/swin_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "diffusion": xr.open_dataset("results/v3/diffusion_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "diffusion_member": xr.open_dataset(
@@ -73,7 +78,7 @@ def main():
     ny, nx = aorc.sizes["lat"], aorc.sizes["lon"]
     print(f"{n} days, grid {ny} x {nx}")
 
-    LAYERS = ["aorc", "nearest", "bilinear", "xgboost", "cnn", "cnn_spectral",
+    LAYERS = ["aorc", "nearest", "bilinear", "xgboost", "cnn", "cnn_e",
               "swin", "diffusion", "diffusion_member"]
     for L in LAYERS:
         (out / "fields" / L).mkdir(parents=True, exist_ok=True)
