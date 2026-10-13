@@ -1,6 +1,6 @@
 export type LayerId =
   | "aorc" | "nearest" | "bilinear" | "xgboost"
-  | "cnn" | "cnn_e" | "swin" | "diffusion" | "diffusion_member"
+  | "cnn" | "cnn_m1" | "swin" | "diffusion" | "diffusion_member"
   /** Colorado and POWER ship one downscaled product rather than four. */
   | "ml";
 
@@ -40,7 +40,7 @@ export const LAYER_META: Record<LayerId, {
   bilinear:         { label: "Bilinear",              short: "Bilinear",    kind: "baseline",   color: "#7b4f9d", note: "Blur the satellite estimate up to 1 km. The bar every model has to clear." },
   xgboost:          { label: "XGBoost 2-stage",       short: "XGBoost",     kind: "learned",    color: "#2d6ca8", note: "Thousands of small yes/no rules learned from past storms. Was the closest of the lot until the texture-penalty CNN beat it — and it is still much the blurriest." },
   cnn:              { label: "CNN (U-Net)",           short: "CNN",         kind: "learned",    color: "#1f9d85", note: "1.7 million settings, learned from the maps themselves." },
-  cnn_e:            { label: "CNN + texture penalty", short: "CNN+tex",     kind: "learned",    color: "#b5468c", note: "The same CNN, trained to match the fine-scale detail of real rain as well as its amount, with extra weight on heavy cells. The product we ship: the closest of the lot and the only one whose fine detail is about right rather than far too smooth. Swin still spots slightly more heavy-rain cells, but gets more of them wrong." },
+  cnn_m1:           { label: "CNN + texture penalty", short: "CNN+tex",     kind: "learned",    color: "#b5468c", note: "The same CNN, trained to match the fine-scale detail of real rain as well as its amount, with extra weight on heavy cells. The product we ship: the closest of the lot, the least prone to crying wolf, and the only one whose fine detail is about right rather than far too smooth. Swin still spots slightly more heavy-rain cells, but gets more of them wrong." },
   swin:             { label: "Swin transformer",      short: "Swin",        kind: "learned",    color: "#c98a04", note: "7.9 million settings. Best at finding where the heavy rain lands." },
   diffusion:        { label: "Diffusion, 6-member mean", short: "Diff mean", kind: "generative", color: "#c4503c", note: "Six attempts averaged together. Averaging smooths away the detail each attempt invented." },
   diffusion_member: { label: "Diffusion, one member", short: "Diff member", kind: "generative", color: "#e0714f", note: "A single attempt. The only one whose rainfall looks as patchy as the real thing." },
@@ -48,5 +48,5 @@ export const LAYER_META: Record<LayerId, {
 };
 
 export const ORDER: LayerId[] = [
-  "aorc", "nearest", "bilinear", "ml", "xgboost", "cnn", "cnn_e", "swin", "diffusion", "diffusion_member",
+  "aorc", "nearest", "bilinear", "ml", "xgboost", "cnn", "cnn_m1", "swin", "diffusion", "diffusion_member",
 ];

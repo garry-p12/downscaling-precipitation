@@ -32,7 +32,7 @@ export const DOMAINS: DomainDef[] = [
   {
     id: "austin", label: "Austin, Texas", sub: "flat · summer thunderstorms",
     input: "Satellite, 10 km", coarse: "10 km", source: "satellite", dir: "/data",
-    gain: 8.1, rmse: 4.521, bilinear: 4.919,
+    gain: 9.4, rmse: 4.455, bilinear: 4.919,
     note: "Nowhere here is steeper than a gentle hill. Rain falls where a storm happens to fire, and a 10 km average has no way of knowing where that is.",
     accent: "#8296a6",
   },

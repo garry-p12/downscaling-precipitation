@@ -48,13 +48,20 @@ def main():
                                       "results/downscaled_1km_2020.nc"])["precipitation"].sel(time=sl),
         "cnn":  xr.open_dataset("results/v3/cnn_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         # Same architecture and budget as `cnn`, trained with the spectral
-        # penalty AND heavy-cell weighting. It replaces the spectral-only
-        # variant that used to sit here: that one bought texture at the cost of
-        # heavy-rain detection, and this one does not, so shipping both would
-        # offer a strictly worse option alongside the good one. Seed chosen on
-        # the dev year, not on test.
-        "cnn_e": xr.open_dataset(
-            "results/v4/cnn_E_1km_2019_2020.nc")["precipitation"].sel(time=sl),
+        # penalty AND heavy-cell weighting, and three things the earlier
+        # shipped field (E) did not have: the penalty applied over the whole
+        # resolvable spectrum rather than below 10 km, a 192 km training patch
+        # instead of 96, and the unsmoothed coarse field as an extra input
+        # channel. Against E on the test record: RMSE 4.455 against 4.521,
+        # sub-10 km energy 0.573 against 0.415, CSI 0.484 against 0.478, FAR
+        # 0.299 against 0.313, and FSS higher at every width.
+        #
+        # Seed chosen on the dev year, where M1's three seeds (4.776-4.812)
+        # do not overlap E's (4.870-4.904). The dev pick is seed 2, which is
+        # the *worst* of M1's three on test; seed 1 reaches 4.432. We ship the
+        # dev pick and report the number it earns.
+        "cnn_m1": xr.open_dataset(
+            "results/v4/cnn_M1_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "swin": xr.open_dataset("results/v3/swin_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "diffusion": xr.open_dataset("results/v3/diffusion_1km_2019_2020.nc")["precipitation"].sel(time=sl),
         "diffusion_member": xr.open_dataset(
@@ -78,7 +85,7 @@ def main():
     ny, nx = aorc.sizes["lat"], aorc.sizes["lon"]
     print(f"{n} days, grid {ny} x {nx}")
 
-    LAYERS = ["aorc", "nearest", "bilinear", "xgboost", "cnn", "cnn_e",
+    LAYERS = ["aorc", "nearest", "bilinear", "xgboost", "cnn", "cnn_m1",
               "swin", "diffusion", "diffusion_member"]
     for L in LAYERS:
         (out / "fields" / L).mkdir(parents=True, exist_ok=True)
