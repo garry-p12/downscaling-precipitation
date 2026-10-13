@@ -35,7 +35,8 @@ def load_checkpoint(path, n_cond, factor, device):
     ck = torch.load(path, map_location="cpu", weights_only=False)
     a = ck["args"]
     m = build_model(ck["model"], n_cond, factor, base=a.get("base", 64), dim=a.get("dim", 180),
-                    depths=(a.get("depth", 6),) * a.get("groups", 4), heads=a.get("heads", 6))
+                    depths=(a.get("depth", 6),) * a.get("groups", 4), heads=a.get("heads", 6),
+                    nearest_channel=a.get("nearest_channel", False))
     m.load_state_dict(ck["state_dict"])
     return m.to(device).eval(), ck
 

@@ -30,6 +30,11 @@ def bilinear_up(x: torch.Tensor, factor: int) -> torch.Tensor:
     return F.interpolate(x, scale_factor=factor, mode="bilinear", align_corners=False)
 
 
+def nearest_up(x: torch.Tensor, factor: int) -> torch.Tensor:
+    """Hold each coarse value flat over its block -- no smoothing at all."""
+    return x.repeat_interleave(factor, -1).repeat_interleave(factor, -2)
+
+
 # --------------------------------------------------------------------------- #
 # Building blocks
 # --------------------------------------------------------------------------- #
@@ -250,24 +255,47 @@ class SwinSR(nn.Module):
 # Wrappers that add the bilinear coarse field
 # --------------------------------------------------------------------------- #
 class Downscaler(nn.Module):
-    """Deterministic downscaler: ``u_hat = bilinear(coarse) + net([cond, bilinear])``."""
+    """Deterministic downscaler: ``u_hat = bilinear(coarse) + net([cond, bilinear])``.
 
-    def __init__(self, backbone: nn.Module, factor: int = 12):
+    ``nearest_channel`` additionally shows the network the *unsmoothed* coarse
+    field. Bilinear interpolation is a smoother, and it is a costly one at the
+    mesoscale: measured against AORC, the block-replicated input carries 0.382
+    of the observed variance at 16-32 km and its bilinear upsampling only
+    0.154. Every model here is built as bilinear plus a correction, so the
+    network starts from a base that has already lost more than half of that
+    band and never sees the field it was lost from. The trained models end at
+    0.08-0.12, below even bilinear.
+
+    The base stays bilinear deliberately. The output layer is zero-initialised,
+    so an untrained model is still exactly the bilinear baseline and no gain
+    can be an artefact of changing what the model starts from -- the extra
+    channel only changes what it can see.
+    """
+
+    def __init__(self, backbone: nn.Module, factor: int = 12,
+                 nearest_channel: bool = False):
         super().__init__()
         self.net = backbone
         self.factor = factor
+        self.nearest_channel = nearest_channel
 
     def forward(self, cond: torch.Tensor, coarse: torch.Tensor) -> torch.Tensor:
         base = bilinear_up(coarse, self.factor)
         base = base[..., : cond.shape[-2], : cond.shape[-1]]
-        return base + self.net(torch.cat([cond, base], dim=1))
+        parts = [cond, base]
+        if self.nearest_channel:
+            nn_up = nearest_up(coarse, self.factor)[..., : cond.shape[-2], : cond.shape[-1]]
+            parts.append(nn_up)
+        return base + self.net(torch.cat(parts, dim=1))
 
 
 def build_model(name: str, n_cond: int, factor: int = 12, **kw) -> nn.Module:
     """``cnn`` (U-Net), ``swin`` (SwinIR-style) or ``diffusion`` (residual DDPM backbone)."""
-    cin = n_cond + 1  # + bilinear coarse channel
+    nc = bool(kw.get("nearest_channel", False))
+    cin = n_cond + 1 + int(nc)  # + bilinear coarse channel, + unsmoothed coarse
     if name == "cnn":
-        return Downscaler(UNet(cin, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))), factor)
+        return Downscaler(UNet(cin, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4))),
+                          factor, nearest_channel=nc)
     if name == "cnn_redist":
         # Mass-conserving sharpener: the block mean is pinned to the input, so
         # the network can only decide placement. See deep/redistribute.py.
@@ -283,7 +311,8 @@ def build_model(name: str, n_cond: int, factor: int = 12, **kw) -> nn.Module:
             factor, wet_mm=kw.get("wet_mm", 0.1))
     if name == "swin":
         return Downscaler(SwinSR(cin, dim=kw.get("dim", 96), depths=kw.get("depths", (4, 4, 4, 4)),
-                                 ws=kw.get("ws", 8), heads=kw.get("heads", 6), factor=factor), factor)
+                                 ws=kw.get("ws", 8), heads=kw.get("heads", 6), factor=factor),
+                          factor, nearest_channel=nc)
     if name == "diffusion":
         # + 1 for the deterministic mean, + 1 for the noisy residual
         return UNet(cin + 2, 1, base=kw.get("base", 64), mults=kw.get("mults", (1, 2, 4)), t_dim=kw.get("t_dim", 64) * 4)

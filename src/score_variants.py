@@ -108,6 +108,30 @@ def accumulate(pred: np.ndarray, obs: np.ndarray, heavy: float = HEAVY,
     return out
 
 
+# Wavelength octaves, in km. The sub-10 km scalar is a mean of per-wavenumber
+# ratios, and the radial bins are uniform in wavenumber, so it is dominated by
+# the shortest wavelengths: on the shipped model it reads 0.865 while the band
+# actually carries 0.415 of the observed variance. Reporting the energy as well
+# keeps the two from being confused.
+ENERGY_BANDS = ((2, 4), (4, 8), (8, 16), (16, 32), (32, 64), (64, 400))
+
+
+def band_energy(wl: np.ndarray, sp: np.ndarray, so: np.ndarray) -> dict:
+    """Predicted/observed *power* by wavelength band, and over all of sub-10 km."""
+    out, ok = {}, np.isfinite(sp) & np.isfinite(so) & (so > 0)
+    sub = ok & (wl <= 10.0)
+    if sub.any():
+        out["spectral_energy_sub10km"] = float(sp[sub].sum() / so[sub].sum())
+    bands = {}
+    for lo, hi in ENERGY_BANDS:
+        sel = ok & (wl >= lo) & (wl < hi)
+        if sel.any():
+            bands[f"{lo}-{hi}km"] = float(sp[sel].sum() / so[sel].sum())
+    if bands:
+        out["spectral_energy_bands"] = bands
+    return out
+
+
 def summarise(a: dict, idx: np.ndarray | None = None) -> dict:
     """Point scores from the per-day accumulators, over a (possibly resampled) day set."""
     sel = slice(None) if idx is None else idx
@@ -218,6 +242,7 @@ def main(argv=None):
         if acc["_spec"]:
             wl, sp, so = acc["_spec"]
             rec["spectral_ratio_sub10km"] = float(spectral_ratio(wl, sp, so, 10.0))
+            rec.update(band_energy(wl, sp, so))
         rec["ci"] = bootstrap(acc, a.n_boot)
         res[name] = rec
         extra = ""
@@ -225,7 +250,11 @@ def main(argv=None):
             extra = (f"  | 10km {rec['rmse_10km']:.3f}  dwn {rec['rmse_downscale']:.3f}"
                      f"  coarse {rec['coarse_error_share']:.1%}")
         print(f"  {name:22s} rmse {rec['rmse']:.3f}  spec {rec.get('spectral_ratio_sub10km', float('nan')):.3f}"
+              f"  (energy {rec.get('spectral_energy_sub10km', float('nan')):.3f})"
               f"  POD {rec['pod']:.3f}  CSI {rec['csi']:.3f}{extra}", flush=True)
+        if "spectral_energy_bands" in rec:
+            print("    band energy  " + "  ".join(
+                f"{k} {v:.3f}" for k, v in rec["spectral_energy_bands"].items()), flush=True)
 
     # paired-by-day differences against the control
     if a.control:

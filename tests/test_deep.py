@@ -363,3 +363,103 @@ def test_amse_accepts_incoherent_detail_that_mse_rejects():
     a_best = min(cand, key=lambda c: float(amse(c[1], o, m)))[0]
     m_best = min(cand, key=lambda c: _wmse(c[1], o))[0]
     assert m_best == 0.0 and a_best > 0.0
+
+
+# --------------------------------------------------------------------------- #
+# Octave bin weighting
+#
+# The penalty's radial bins are uniform in wavenumber, so they crowd into short
+# wavelengths: 24 of the 39 bins below 10 km at a 96-cell patch lie between 2
+# and 4 km. The shipped model recovers energy in proportion to that budget --
+# 0.90 at 2-4 km against 0.36 at 8-10 km -- so the layout, not the model, is
+# what decides which scales get fixed. `octave` equalises it.
+# --------------------------------------------------------------------------- #
+def test_octave_weights_equalise_the_octaves():
+    from src.deep.spectral import _radial, band_mask, bin_weights
+
+    s, dev, dt = 96, torch.device("cpu"), torch.float32
+    band = band_mask(s, 10.0, dev, dt)
+    _, _, _, centres = _radial(s, dev, dt)
+    oct_idx = torch.floor(torch.log2(s / centres.clamp(min=1e-6)))
+
+    w = bin_weights(s, band, dev, dt, "octave")
+    assert abs(float(w.sum()) - 1.0) < 1e-5
+    assert float(w[~band].abs().sum()) == 0.0
+    totals = [float(w[band & (oct_idx == o)].sum()) for o in torch.unique(oct_idx[band])]
+    assert max(totals) - min(totals) < 1e-5
+
+    # uniform must still be exactly the plain mean it replaced
+    wu = bin_weights(s, band, dev, dt, "uniform")
+    assert abs(float(wu[band].max()) - 1.0 / float(band.sum())) < 1e-9
+
+
+def test_octave_weighting_leaves_the_default_untouched():
+    from src.deep.spectral import spectral_loss
+
+    torch.manual_seed(0)
+    pred, obs = torch.rand(4, 1, 96, 96) * 20, torch.rand(4, 1, 96, 96) * 20
+    mask = torch.ones(4, 1, 96, 96)
+    base = spectral_loss(pred, obs, mask, 10.0)
+    assert torch.equal(base, spectral_loss(pred, obs, mask, 10.0, bin_weight="uniform"))
+    assert not torch.equal(base, spectral_loss(pred, obs, mask, 10.0, bin_weight="octave"))
+
+
+@pytest.mark.parametrize("scheme", ["uniform", "octave"])
+@pytest.mark.parametrize("cut", [10.0, 96.0])
+def test_spectral_loss_differentiable_under_autocast(scheme, cut):
+    """The Bernoulli-gamma runs all died on an op autocast refused, after a
+    local test that never entered an autocast block. This enters one."""
+    from src.deep.spectral import spectral_loss
+
+    torch.manual_seed(0)
+    obs, mask = torch.rand(2, 1, 96, 96) * 20, torch.ones(2, 1, 96, 96)
+    p = (torch.rand(2, 1, 96, 96) * 20).requires_grad_(True)
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        loss = spectral_loss(p, obs, mask, cut, bin_weight=scheme)
+    loss.float().backward()
+    assert p.grad is not None and torch.isfinite(p.grad).all()
+
+
+# --------------------------------------------------------------------------- #
+# The unsmoothed-coarse channel
+#
+# Bilinear upsampling is a smoother and an expensive one at the mesoscale:
+# against AORC the block-replicated input carries 0.382 of observed variance
+# at 16-32 km and its bilinear upsampling only 0.154, while the trained models
+# land at 0.08-0.12 -- below even bilinear. The models are bilinear plus a
+# correction, so they never see the field that variance was lost from.
+# --------------------------------------------------------------------------- #
+def test_nearest_channel_adds_one_input_channel():
+    from src.deep.models import build_model
+
+    a = build_model("cnn", n_cond=5, factor=12, base=8)
+    b = build_model("cnn", n_cond=5, factor=12, base=8, nearest_channel=True)
+    assert a.net.stem.in_channels + 1 == b.net.stem.in_channels
+    assert b.nearest_channel and not a.nearest_channel
+
+
+def test_nearest_channel_untrained_is_still_exactly_bilinear():
+    """The base must stay bilinear, or a gain could be an artefact of changing
+    what the model starts from rather than of what it can see."""
+    from src.deep.models import bilinear_up, build_model
+
+    torch.manual_seed(0)
+    cond, coarse = torch.randn(2, 5, 96, 96), torch.rand(2, 1, 8, 8) * 10
+    for nc in (False, True):
+        m = build_model("cnn", n_cond=5, factor=12, base=8, nearest_channel=nc).eval()
+        with torch.no_grad():
+            out = m(cond, coarse)
+        base = bilinear_up(coarse, 12)[..., :96, :96]
+        assert torch.allclose(out, base, atol=1e-6), nc
+
+
+def test_nearest_up_is_exact_block_replication():
+    from src.deep.models import nearest_up
+
+    x = torch.arange(4, dtype=torch.float32).reshape(1, 1, 2, 2)
+    u = nearest_up(x, 3)
+    assert u.shape == (1, 1, 6, 6)
+    assert torch.equal(u[0, 0, :3, :3], torch.full((3, 3), 0.0))
+    assert torch.equal(u[0, 0, 3:, 3:], torch.full((3, 3), 3.0))
+    # block means are preserved exactly, which bilinear does not guarantee
+    assert torch.allclose(u.reshape(1, 1, 2, 3, 2, 3).mean(dim=(3, 5)), x)

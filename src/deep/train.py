@@ -71,6 +71,7 @@ def masked_loss(u_pred, u_tgt, mask, norm, kind: str, scale: float, w_log: float
                 heavy_weight: float = 1.0, sample_w=None,
                 spectral_weight: float = 0.0, spectral_cut: float = 10.0,
                 spectral_space: str = "mm", spectral_wet_mm: float = 1.0,
+                spectral_bin_weight: str = "uniform",
                 ms_weights=(0.4, 0.3, 0.2, 0.1),
                 amse_pool: str = "batch",
                 amse_wet_mm: float = 1.0, amse_group: int = 1):
@@ -151,10 +152,12 @@ def masked_loss(u_pred, u_tgt, mask, norm, kind: str, scale: float, w_log: float
         if spectral_space == "log":
             total = total + spectral_weight * spectral_loss(
                 u_pred.clamp(*U_CLAMP), u_tgt, mask, spectral_cut,
-                min_wet_mm=spectral_wet_mm, wet_ref=o)
+                min_wet_mm=spectral_wet_mm, wet_ref=o,
+                bin_weight=spectral_bin_weight)
         else:
             total = total + spectral_weight * spectral_loss(
-                p, o, mask, spectral_cut, min_wet_mm=spectral_wet_mm)
+                p, o, mask, spectral_cut, min_wet_mm=spectral_wet_mm,
+                bin_weight=spectral_bin_weight)
     return total
 
 
@@ -307,6 +310,19 @@ def main(argv=None):
     ap.add_argument("--spectral-space", choices=["mm", "log"], default="mm",
                     help="space the spectral penalty is taken in; `log` is the standardised "
                          "log space the network predicts in, which is closer to Gaussian")
+    ap.add_argument("--nearest-channel", action="store_true",
+                    help="also show the network the unsmoothed (block-replicated) coarse "
+                         "field. Its bilinear base has already lost more than half the "
+                         "16-32 km variance the raw input carries, and the trained models "
+                         "end below even bilinear there. The base is unchanged, so an "
+                         "untrained model is still exactly bilinear.")
+    ap.add_argument("--spectral-bin-weight", choices=("uniform", "octave"),
+                    default="uniform",
+                    help="how the radial bins share the penalty. The bins are uniform "
+                         "in wavenumber, so `uniform` spends ~61 %% of the loss on "
+                         "2-4 km at a 96-cell patch and the recovered energy follows "
+                         "that budget; `octave` gives every factor of two in "
+                         "wavelength the same weight.")
     ap.add_argument("--spectral-cut", type=float, default=10.0,
                     help="wavelength in km below which structure is penalised (matches the "
                          "spectral ratio reported by src.model_comparison)")
@@ -357,7 +373,8 @@ def main(argv=None):
     is_bg = args.model == "cnn_bg"
     if args.model in ("cnn", "swin", "cnn_bg", "cnn_redist"):
         model = build_model(args.model, data.n_cond, factor, base=args.base, dim=args.dim,
-                            depths=(args.depth,) * args.groups, heads=args.heads).to(device)
+                            depths=(args.depth,) * args.groups, heads=args.heads,
+                            nearest_channel=args.nearest_channel).to(device)
         if args.init_ckpt:
             # Fine-tuning rather than training from scratch. Subich et al. (2025)
             # apply AMSE to an already-trained model, where the coherence term is
@@ -453,6 +470,7 @@ def main(argv=None):
                                        sw if args.importance_weight else None,
                                        args.spectral_weight, args.spectral_cut,
                                        args.spectral_space, args.spectral_wet_mm,
+                                       args.spectral_bin_weight,
                                        tuple(args.ms_weights), args.amse_pool,
                                        args.amse_wet_mm, args.amse_bin_group)
                 else:

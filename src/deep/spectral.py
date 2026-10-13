@@ -87,9 +87,45 @@ def band_mask(s: int, cut_cells: float, device, dtype) -> torch.Tensor:
     return wavelength <= cut_cells
 
 
+def bin_weights(s: int, band: torch.Tensor, device, dtype,
+                scheme: str = "uniform") -> torch.Tensor:
+    """Per-bin weights for the penalty, summing to 1 over ``band``.
+
+    ``uniform`` reproduces the plain mean the penalty used before this existed.
+
+    ``octave`` makes each factor of two in wavelength carry the same weight.
+    The radial bins are uniform in *wavenumber*, so they crowd into the short
+    wavelengths: at a 96-cell patch, 24 of the 39 bins below 10 km lie between
+    2 and 4 km and only 3 lie between 8 and 10 km. A plain mean therefore
+    spends 61 % of the penalty on the octave carrying the least variance, and
+    the recovered energy follows the budget exactly -- 0.90 at 2-4 km, 0.46 at
+    4-8 km, 0.36 at 8-10 km, measured on the shipped model. Weighting by octave
+    is the statement "a factor-of-two error costs the same at every
+    wavelength", which is what the log-power choice above already assumes, made
+    true of the bin layout as well.
+    """
+    _, _, _, centres = _radial(s, device, dtype)
+    if scheme == "uniform":
+        w = band.to(dtype)
+    elif scheme == "octave":
+        wavelength = s / centres.clamp(min=1e-6)
+        oct_idx = torch.floor(torch.log2(wavelength.clamp(min=1e-6)))
+        w = torch.zeros_like(centres, dtype=dtype)
+        for o in torch.unique(oct_idx[band]):
+            sel = band & (oct_idx == o)
+            w[sel] = 1.0 / float(sel.sum())      # each octave totals 1
+    else:
+        raise ValueError(f"unknown bin weighting {scheme!r}")
+    total = w.sum()
+    if float(total) <= 0:
+        return w
+    return w / total
+
+
 def spectral_loss(pred: torch.Tensor, obs: torch.Tensor, mask: torch.Tensor,
                   cut_cells: float = 10.0, min_wet_mm: float = 1.0,
-                  eps: float = 1e-8, wet_ref: torch.Tensor | None = None) -> torch.Tensor:
+                  eps: float = 1e-8, wet_ref: torch.Tensor | None = None,
+                  bin_weight: str = "uniform") -> torch.Tensor:
     """Squared log-power gap below ``cut_cells``, averaged over wet patches.
 
     ``pred``/``obs``/``mask`` are (B, 1, H, W). Patches whose observed field
@@ -124,7 +160,10 @@ def spectral_loss(pred: torch.Tensor, obs: torch.Tensor, mask: torch.Tensor,
     if not bool(band.any()):
         return pred.sum() * 0.0
     d = torch.log(sp[:, band] + eps) - torch.log(so[:, band] + eps)
-    return (d ** 2).mean()
+    if bin_weight == "uniform":
+        return (d ** 2).mean()
+    w = bin_weights(min(p.shape[-2], p.shape[-1]), band, p.device, p.dtype, bin_weight)
+    return ((d ** 2) * w[band][None, :]).sum(1).mean()
 
 
 @torch.no_grad()
