@@ -23,6 +23,7 @@ nothing downstream needs to know the input changed.
 from __future__ import annotations
 
 import argparse
+import glob
 import shutil
 from pathlib import Path
 
@@ -37,7 +38,21 @@ PASSTHROUGH = ("aorc_aligned_1km.nc", "nlcd_aligned_1km.nc", "era5_aligned_10km.
                "dem_slope_aspect.nc", "imerg_climatology_10km.nc")
 
 
-def build(cfg: dict, out: Path, factor: int | None, link: bool) -> None:
+def _open_source(pattern: str) -> "xr.DataArray":
+    """Open a 1 km product given as a path or a glob of per-year files."""
+    paths = sorted(glob.glob(pattern))
+    if not paths:
+        raise SystemExit(f"--source matched no files: {pattern}")
+    ds = xr.open_mfdataset(paths, combine="by_coords") if len(paths) > 1 \
+        else xr.open_dataset(paths[0])
+    for v in ("precip", "precipitation"):
+        if v in ds:
+            return ds[v]
+    return ds[list(ds.data_vars)[0]]
+
+
+def build(cfg: dict, out: Path, factor: int | None, link: bool,
+          source: str | None = None) -> None:
     src = Path(cfg["paths"]["processed"])
     grids = grids_from_config(cfg)
     dom = cfg["domain"]
@@ -53,7 +68,12 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool) -> None:
                            factor=factor)
     out.mkdir(parents=True, exist_ok=True)
 
-    aorc = xr.open_dataset(src / "aorc_aligned_1km.nc")["precip"]
+    # Default source is the reference itself: the perfect-input oracle. A
+    # --source instead block-averages some *product's* 1 km field, which turns
+    # this into the second stage of a two-stage experiment -- the sharpener is
+    # then fed the coarse field a real model produced rather than the truth.
+    aorc = (_open_source(source) if source
+            else xr.open_dataset(src / "aorc_aligned_1km.nc")["precip"])
     ny, nx = aorc.sizes["lat"], aorc.sizes["lon"]
     if ny % grids.factor or nx % grids.factor:
         raise SystemExit(
@@ -67,7 +87,9 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool) -> None:
     # Keep the variable name and dtype the satellite file uses: the point of the
     # oracle is that nothing downstream can tell the difference.
     ds = coarse.astype("float32").rename("precip").to_dataset()
-    ds["precip"].attrs = {"units": "mm/day", "long_name": "AORC block mean (perfect input oracle)",
+    ds["precip"].attrs = {"units": "mm/day",
+                          "long_name": (f"block mean of {source}" if source
+                                        else "AORC block mean (perfect input oracle)"),
                           "source": "aorc_aligned_1km.nc", "factor": int(grids.factor)}
     ds.attrs["note"] = ("Perfect-input oracle: this is the reference averaged to the coarse "
                         "grid, NOT a satellite product. Scores against it bound the ceiling.")
@@ -120,9 +142,15 @@ def main(argv=None):
                     help="refinement factor; default is the config's (12 for 0.1 deg)")
     ap.add_argument("--copy", action="store_true",
                     help="copy the passthrough files instead of symlinking them")
+    ap.add_argument("--source", default=None,
+                    help="path or glob of a 1 km product whose block mean becomes the "
+                         "coarse field. Default is the reference (the perfect-input "
+                         "oracle). Pointing it at a model's own output builds the "
+                         "second stage of a two-stage experiment: the sharpener is fed "
+                         "a corrected coarse field rather than the raw retrieval.")
     a = ap.parse_args(argv)
     setup_logging()
-    build(load_config(a.config), Path(a.out), a.factor, link=not a.copy)
+    build(load_config(a.config), Path(a.out), a.factor, link=not a.copy, source=a.source)
 
 
 if __name__ == "__main__":
