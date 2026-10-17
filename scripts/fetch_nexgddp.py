@@ -43,6 +43,9 @@ def main():
     # The POWER domain, with a degree of margin so interpolation has support.
     ap.add_argument("--bbox", default="-101,28.5,-95,35.5", help="W,S,E,N")
     a = ap.parse_args()
+    # The stem is <var>_day_<model>_<scenario>_<variant>_<grid>_<year>; everything
+    # before the year is fixed per model-scenario except the grid label.
+    a.scenario_tail = ""
 
     import s3fs
     import xarray as xr
@@ -59,13 +62,30 @@ def main():
             if dest.exists():
                 skip += 1
                 continue
-            # NEX publishes a few model-years with a _v1.1 suffix; try both.
-            stems = [f"{a.var}_day_{model}_{a.scenario}_{var}_gn_{year}",
-                     f"{a.var}_day_{model}_{a.scenario}_{var}_gn_{year}_v1.1",
-                     f"{a.var}_day_{model}_{a.scenario}_{var}_gr_{year}"]
+            # Guessing the key does not work: the grid label varies by model
+            # (gn, gr, gr1) and some model-years carry _v1.1 or _v2.0 suffixes.
+            # GFDL-ESM4 is gr1 and a guessed list missed all 46 of its years
+            # silently. List the directory and match on the year instead,
+            # preferring the highest version where several exist.
+            prefix = f"{BUCKET}/{model}/{a.scenario}/{var}/{a.var}"
+            try:
+                listing = [k.split("/")[-1] for k in fs.ls(prefix)]
+            except Exception as exc:
+                print(f"  MISS {model:<16} {a.scenario:<11} {year}  cannot list: {exc}",
+                      flush=True)
+                fail += 1
+                continue
+            cand = sorted(k[:-3] for k in listing
+                          if k.endswith(".nc") and f"_{year}" in k
+                          and k.split(f"_{year}")[0].endswith(a.scenario_tail))
+            if not cand:
+                cand = sorted(k[:-3] for k in listing
+                              if k.endswith(".nc") and f"_{year}." in k or
+                              (k.endswith(".nc") and f"_{year}_v" in k))
+            stems = cand[::-1]          # highest version first
             got = False
             for stem in stems:
-                key = f"{BUCKET}/{model}/{a.scenario}/{var}/{a.var}/{stem}.nc"
+                key = f"{prefix}/{stem}.nc"
                 if not fs.exists(key):
                     continue
                 try:
