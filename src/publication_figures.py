@@ -689,3 +689,84 @@ def f10_exchange():
         panel(ax, L, dx=-0.15)
     save(fig, "F10_exchange_rate",
          "mesoscale variance against RMSE as the spectral weight rises, by domain")
+
+
+# ====================================== F11: what each grid spacing can deliver
+# Austin, measured on AORC alone: block-average the reference onto each
+# candidate grid, put it back at 1 km, and score it. No model, no retrieval --
+# a property of the grid. The real products are drawn against it, and the point
+# of the panel is that they sit above the floor of a far coarser grid.
+REAL_AUSTIN = [     # (label, spacing km, RMSE, label offset in points, alignment)
+    ("bilinear from IMERG", 11.1, 4.919, (8, 5), "left"),
+    ("XGBoost", 11.1, 4.583, (8, 0), "left"),
+    ("M1 (shipped)", 11.1, 4.455, (8, -6), "left"),
+    ("best from NASA POWER", 55.6, 5.679, (-8, 0), "right"),
+]
+
+
+def f11_resolution_floor():
+    """The irreducible error of a grid, against what real products achieve."""
+    d = load("results/resolution_ladder.json")
+    if not d:
+        print("  F11 skipped: run src.resolution_ladder first")
+        return
+    rows = [v for k, v in d.items() if not k.startswith("_")]
+    rows.sort(key=lambda r: r["res_km"])
+    km = [r["res_km"] for r in rows]
+    floor = [r["bilinear"]["rmse"] for r in rows]
+    blocky = [r["nearest"]["rmse"] for r in rows]
+    pod = [r["bilinear"]["pod"] for r in rows]
+    energy = [r["bilinear"].get("spectral_energy_sub10km", np.nan) for r in rows]
+
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 3.1))
+
+    ax = axes[0]
+    ax.plot(km, blocky, "s--", color=GREY_L, ms=3.4, lw=1.0, mfc="white",
+            mew=0.8, zorder=3, label="held flat in blocks")
+    ax.plot(km, floor, "o-", color=BLUE, ms=4, lw=1.4, mec="white", mew=0.5,
+            zorder=4, label="bilinear (the floor)")
+    for lab, x, y, off, ha in REAL_AUSTIN:
+        ax.plot(x, y, "*", color=VERM, ms=9, mec="white", mew=0.6, zorder=5)
+        ax.annotate(lab, (x, y), textcoords="offset points", xytext=off,
+                    fontsize=5.8, color=VERM, ha=ha, va="center")
+    ax.set_ylim(-0.25, 6.6)
+    # The decision-relevant crossing: a perfect 0.5 deg field beats our real
+    # 0.1 deg product, so delivery spacing is not what is binding.
+    ax.axhline(4.455, color=BLACK, lw=0.7, ls=(0, (3, 2)), zorder=2)
+    ax.annotate("a PERFECT 0.5° field (3.13)\nbeats our real 0.1° product (4.46)",
+                xy=(40.0, 2.55), xytext=(2.05, 3.55), fontsize=5.8, color=BLACK,
+                ha="left", va="top",
+                arrowprops=dict(arrowstyle="->", lw=0.7, color=BLACK,
+                                shrinkA=0, shrinkB=3))
+    ax.set_xscale("log")
+    ax.set_xticks([2, 5, 11, 28, 56])
+    ax.set_xticklabels(["2", "5", "11", "28", "56"], fontsize=6.6)
+    from matplotlib.ticker import NullFormatter, NullLocator
+    ax.xaxis.set_minor_locator(NullLocator()); ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_xlabel("grid spacing of the delivered product (km)")
+    ax.set_ylabel("RMSE at 1 km (mm day$^{-1}$)")
+    ax.set_title("What the grid alone costs", fontsize=7.5, pad=5)
+    ax.legend(fontsize=5.8, frameon=False, loc="upper left", handlelength=1.6)
+    ax_style(ax, grid_axis=None)
+
+    ax = axes[1]
+    ax.plot(km, pod, "o-", color=GREEN, ms=4, lw=1.4, mec="white", mew=0.5, label="POD > 30 mm")
+    ax.set_xscale("log")
+    ax.set_xticks([2, 5, 11, 28, 56]); ax.set_xticklabels(["2", "5", "11", "28", "56"], fontsize=6.6)
+    ax.xaxis.set_minor_locator(NullLocator()); ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_ylim(0.6, 1.02)
+    ax.set_xlabel("grid spacing of the delivered product (km)")
+    ax.set_ylabel("POD at 30 mm day$^{-1}$", color=GREEN)
+    ax.tick_params(axis="y", colors=GREEN)
+    ax.set_title("Heavy rain and texture against spacing", fontsize=7.5, pad=5)
+    ax_style(ax, grid_axis=None)
+    ax2 = ax.twinx()
+    ax2.plot(km, energy, "^--", color=ORANGE, ms=4, lw=1.2, mec="white", mew=0.5)
+    ax2.set_yscale("log")
+    ax2.set_ylabel("retained variance < 10 km", color=ORANGE)
+    ax2.tick_params(axis="y", colors=ORANGE)
+    ax2.spines["top"].set_visible(False)
+    for a, L in zip(axes, "ab"):
+        panel(a, L, dx=-0.17)
+    save(fig, "F11_resolution_floor",
+         "irreducible 1 km error by delivered grid spacing, against real products")
