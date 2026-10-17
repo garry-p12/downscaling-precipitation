@@ -770,3 +770,87 @@ def f11_resolution_floor():
         panel(a, L, dx=-0.17)
     save(fig, "F11_resolution_floor",
          "irreducible 1 km error by delivered grid spacing, against real products")
+
+
+# ============================ F12: variance lost, by grid spacing and by scale
+# The two-dimensional version of F11. For every candidate grid spacing and every
+# wavelength band, the share of the real field's variance that is gone by the time
+# the product is used at 1 km. 8 x 5 measured cells, no fitting between them.
+#
+# What is measured is the grid *and the standard way of getting off it*: AORC
+# averaged to the spacing, then bilinearly upsampled. That is the quantity a user
+# experiences, but the two causes are not separable and at the finest spacings the
+# upsampler dominates -- at 1.9 km the grid can represent a 2-4 km feature perfectly
+# well and bilinear interpolation still removes 91 % of that band's variance. Read
+# the coarse rows as the grid and the fine rows as the interpolation.
+#
+# Both panels show the same numbers. The surface is the requested view; the
+# heatmap is the one to read values off, because a surface hides cells behind
+# other cells and its height is judged against a tilted plane. Sequential data,
+# so one hue, light to dark -- dark means more variance lost.
+def f12_variance_lost():
+    """What each grid spacing destroys, resolved by scale."""
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers the projection)
+
+    d = load("results/resolution_ladder.json")
+    if not d:
+        print("  F12 skipped: run src.resolution_ladder first")
+        return
+    rows = sorted([v for k, v in d.items() if not k.startswith("_")],
+                  key=lambda r: r["res_km"])
+    bands = list(rows[0]["bilinear"]["bands"])
+    km = np.array([r["res_km"] for r in rows])
+    # Averaging can only remove variance, so this sits in [0, 1] by construction.
+    lost = np.array([[1.0 - r["bilinear"]["bands"][b] for b in bands] for r in rows])
+
+    fig = plt.figure(figsize=(W2, 3.4))
+    cmap = plt.get_cmap("Blues")
+
+    ax = fig.add_subplot(1, 2, 1, projection="3d")
+    X, Y = np.meshgrid(np.arange(len(bands)), np.log2(km))
+    ax.plot_surface(X, Y, lost, cmap=cmap, vmin=0, vmax=1, rstride=1, cstride=1,
+                    linewidth=0.3, edgecolors="white", antialiased=True, shade=False)
+    ax.set_xticks(np.arange(len(bands)))
+    ax.set_xticklabels([b.replace("km", "") for b in bands], fontsize=5.6)
+    show = {1.9, 5.6, 11.1, 27.8, 55.6}        # the rest collide in projection
+    ax.set_yticks(np.log2(km))
+    ax.set_yticklabels([(f"{v:.0f}" if v >= 10 else f"{v:.1f}") if round(v, 1) in show
+                        else "" for v in km], fontsize=5.6)
+    ax.set_zlim(0, 1)
+    ax.tick_params(axis="z", labelsize=5.6)
+    ax.set_xlabel("wavelength band (km)", fontsize=6.4, labelpad=-2)
+    ax.set_ylabel("grid spacing (km)", fontsize=6.4, labelpad=-1)
+    ax.set_zlabel("")
+    ax.text2D(0.015, 0.63, "share of\nvariance lost", transform=ax.transAxes,
+              fontsize=6.4, rotation=90, ha="center", va="center")
+    ax.view_init(elev=26, azim=-132)
+    ax.set_box_aspect((1, 1, 0.62))
+    ax.set_title("As a surface", fontsize=7.5, pad=0)
+
+    ax = fig.add_subplot(1, 2, 2)
+    im = ax.imshow(lost, cmap=cmap, vmin=0, vmax=1, aspect="auto", origin="upper")
+    ax.set_xticks(np.arange(len(bands)))
+    ax.set_xticklabels([b.replace("km", "") for b in bands], fontsize=6.4)
+    ax.set_yticks(np.arange(len(km)))
+    ax.set_yticklabels([f"{v:.1f}" for v in km], fontsize=6.4)
+    ax.set_xlabel("wavelength band (km)")
+    ax.set_ylabel("grid spacing (km)")
+    ax.set_title("As a heatmap — read values here", fontsize=7.5, pad=5)
+    for i in range(lost.shape[0]):
+        for j in range(lost.shape[1]):
+            v = lost[i, j]
+            ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=5.6,
+                    color="white" if v > 0.55 else GREY)
+    for s in ax.spines.values():
+        s.set_visible(False)
+    ax.tick_params(length=0)
+    cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cb.set_label("share of variance lost", fontsize=6.4)
+    cb.ax.tick_params(labelsize=5.8)
+    cb.outline.set_visible(False)
+
+    fig.axes[0].text2D(-0.02, 0.98, "(a)", transform=fig.axes[0].transAxes,
+                       fontsize=8, fontweight="bold", va="top")
+    panel(fig.axes[1], "b", dx=-0.20)
+    save(fig, "F12_variance_lost",
+         "share of variance lost at 1 km, by delivered spacing and wavelength band")
