@@ -463,3 +463,45 @@ def test_nearest_up_is_exact_block_replication():
     assert torch.equal(u[0, 0, 3:, 3:], torch.full((3, 3), 3.0))
     # block means are preserved exactly, which bilinear does not guarantee
     assert torch.allclose(u.reshape(1, 1, 2, 3, 2, 3).mean(dim=(3, 5)), x)
+
+
+# --------------------------------------------------------------------------- #
+# Metrics the RSIR proposal names: SSIM and KL divergence
+# --------------------------------------------------------------------------- #
+def test_ssim_is_one_for_identical_fields_and_falls_with_blur():
+    from scipy import ndimage
+    from src.proposal_metrics import ssim
+
+    rng = np.random.default_rng(0)
+    o = np.abs(rng.gamma(0.4, 12.0, size=(6, 64, 64))).astype(np.float32)
+    assert abs(ssim(o, o) - 1.0) < 1e-6
+    blurred = ndimage.uniform_filter(o, size=(1, 5, 5), mode="nearest")
+    assert ssim(blurred, o) < ssim(o, o)
+    # Smoothing is what RMSE rewards and SSIM should not; a smoother field must
+    # not score better on structure than the field it was smoothed from.
+    assert ssim(ndimage.uniform_filter(o, size=(1, 11, 11), mode="nearest"), o) < ssim(blurred, o)
+
+
+def test_kl_is_zero_for_the_same_distribution_and_positive_otherwise():
+    from src.proposal_metrics import kl_divergence
+
+    rng = np.random.default_rng(1)
+    o = np.abs(rng.gamma(0.4, 12.0, size=(4, 48, 48)))
+    same = kl_divergence(o.copy(), o)
+    assert same["kl_obs_given_pred"] < 1e-9 and same["js"] < 1e-9
+    # A hedged product -- everything pulled towards the mean -- must be penalised.
+    hedged = np.full_like(o, o.mean())
+    assert kl_divergence(hedged, o)["kl_obs_given_pred"] > same["kl_obs_given_pred"]
+    # KL is asymmetric; both directions are reported and must be finite.
+    d = kl_divergence(hedged, o)
+    assert np.isfinite(d["kl_pred_given_obs"]) and np.isfinite(d["js"])
+
+
+def test_coarsen_preserves_the_mean_and_shrinks_the_grid():
+    from src.proposal_metrics import coarsen
+
+    a = np.arange(2 * 12 * 12, dtype=np.float64).reshape(2, 12, 12)
+    c = coarsen(a, 4)
+    assert c.shape == (2, 3, 3)
+    assert abs(float(c.mean()) - float(a.mean())) < 1e-9
+    assert np.array_equal(coarsen(a, 1), a)
