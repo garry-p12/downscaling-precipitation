@@ -38,29 +38,36 @@ interpolating quantiles through it produces drizzle that is not there. The
 wet-day threshold is applied first and the frequency of wet days is corrected
 separately.
 
-**Status: NOT VALIDATED. Do not use these fields downstream.**
+**Status: IMPROVED, STILL NOT VALIDATED. Do not use these fields downstream.**
 
-Frequency is now right. Over the ACCESS-CM2 ssp245 domain the corrected
-wet-day frequency is 2.0 % below observed against the model's own -0.8 %
-change, after three fixes recorded in the git history: tau taken from the
-future rather than the historical distribution, the wet threshold anchored on
-observations and scaled by the model's own frequency change, and that
-threshold floored at the wet cut so the quantile cannot land inside
-precipitation's atom at zero.
+Measured as the change in wet-day mean that the correction produces, against
+the change the model itself projects over the days the correction operates on:
 
-**Intensity is not right, and the defect is open.** The corrected wet-day mean
-comes out 22.2 % above observed. The model's own change on the days QDM
-actually operates on -- its top 27.3 % -- is +6.4 %, so the correction is
-inflating the signal roughly threefold rather than transferring it. Measured
-for reference: the model's change is +7.1 % over all its wet days, +6.4 % over
-the top 27.3 %, +7.8 % over the top 10 % and +10.1 % over the top 2 %, so the
-tail does intensify faster, but nowhere near enough to explain 22 %.
+    model            model says   correction gave (before -> after)
+    ACCESS-CM2           +6.4 %        +16.6 %  ->   +9.2 %
+    GFDL-ESM4            -6.1 %        +63.5 %  ->   +2.6 %
+    MPI-ESM1-2-HR        -6.9 %        +65.4 %  ->   -0.2 %
+    MRI-ESM2-0           -1.4 %        +95.5 %  ->   +0.6 %
 
-The likely locus is the delta term. It is a per-value ratio multiplied by a
-quantile of the observed distribution, and the two are positively correlated,
-so the mean of the product exceeds the product of the means. The clip at 10.0
-and the asymmetry between how the historical and future wet sets are selected
-are both candidates. None of this is demonstrated.
+The dominant fault is fixed. It was the historical reference set being
+selected at the *future's* target fraction: wherever the model gets wetter
+that selection dips below the wet cut into the dry atom, the historical
+quantiles start near zero, delta = value / quantile explodes, and the clip at
+10 turns it into a tenfold inflation of that cell-month. Flooring the
+historical set at the wet cut removed almost all of it.
+
+Two residuals remain and both are characterised:
+
+* **A positive bias of roughly 5 percentage points.** Corrected changes run
+  -0.2 to +9.2 % where the models say -6.9 to +6.4 %, so two of four still
+  come out the wrong side of zero. The magnitudes are right; the offset is not.
+* **Wet-day frequency undershoots by 5-19 %.** Mapped values at the low end of
+  the distribution land below the wet cut and are counted dry.
+
+Both are small enough to be plausible consequences of mapping a heavy-tailed
+variable through a clipped multiplicative delta, and neither is demonstrated.
+The acceptance test for any further work is the table above: every model's
+corrected change must share the sign of what that model projects.
 
     python -m src.projections --hist 'nexgddp/pr_ACCESS-CM2_historical_*.nc' \\
         --future 'nexgddp/pr_ACCESS-CM2_ssp245_*.nc' \\
@@ -126,24 +133,34 @@ def qdm_cell(hist: np.ndarray, fut: np.ndarray, obs: np.ndarray) -> np.ndarray:
     p_wet_h = float(np.mean(hh >= WET))
     p_wet_f = float(np.mean(fv >= WET))
     ratio = (p_wet_f / p_wet_h) if p_wet_h > 0 else 1.0
+    # Cap the target at what the model can actually supply. Flooring the
+    # threshold at the wet cut instead -- the previous attempt -- fixed the
+    # frequency but broke the intensity: when the floor bound, the selected
+    # future set became ALL model-wet days (0.354 of the record) while the
+    # observed set it maps onto is the observed wet days (0.273). Two different
+    # fractions of the record indexed by the same rank variable means a light
+    # model day sits at an artificially high rank and lands on a heavy observed
+    # quantile. Capping keeps both sets at the same fraction by construction
+    # and keeps the threshold above the dry atom without a floor.
+    # Not capped at the model's own wet fraction: capping cost 13-20 % of the
+    # wet-day frequency. The threshold below is floored at the wet cut instead,
+    # which bounds the selection without distorting the target.
     p_target = float(np.clip(p_wet_obs * ratio, 0.0, 1.0))
     if p_target <= 0:
         return out
     thr = float(np.quantile(fv, 1.0 - p_target)) if p_target < 1 else WET
-    # Floor at the wet cut. Precipitation has an atom at zero, and where the
-    # model is wet on fewer days than the target the quantile lands inside that
-    # atom -- at or below 0.1 mm. `fut >= thr` then selects dry days as well,
-    # and the amount mapping turns every one of them into a wet day, because
-    # the smallest observed wet quantile is well above zero. On ACCESS-CM2 over
-    # this domain that happened in 7.4 % of cell-months and inflated the
-    # corrected wet-day frequency by 9 %. Flooring here caps the selection at
-    # the days the model itself calls wet, which is the most it can support.
-    thr = max(thr, WET)
-    wet_f = fut >= thr
+    wet_f = fut >= max(thr, WET)
     if not wet_f.any():
         return out
     # 2. Quantile delta on wet days.
-    hw = hh[hh >= np.quantile(hh, 1.0 - p_wet_obs)] if p_wet_obs < 1 else hh
+    # Same fraction as the future selection, so the two are indexed by a
+    # comparable rank variable; otherwise the delta compares unlike sets.
+    # Floored at the wet cut. Selecting the historical set at the *future's*
+    # target fraction lets it dip below the cut into the dry atom wherever the
+    # model gets wetter; qh then starts near zero, delta = value / qh explodes,
+    # and the clip at 10 turns it into a tenfold inflation of that cell-month.
+    hw = hh[hh >= max(float(np.quantile(hh, 1.0 - p_target)), WET)] \
+        if p_target < 1 else hh[hh >= WET]
     ow = ho[ho >= WET]
     if hw.size < 20 or ow.size < 20:
         return fut
