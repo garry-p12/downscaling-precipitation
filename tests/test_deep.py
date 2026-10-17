@@ -505,3 +505,93 @@ def test_coarsen_preserves_the_mean_and_shrinks_the_grid():
     assert c.shape == (2, 3, 3)
     assert abs(float(c.mean()) - float(a.mean())) < 1e-9
     assert np.array_equal(coarsen(a, 1), a)
+
+
+# --------------------------------------------------------------------------- #
+# Quantile delta mapping for the CMIP6 projections arm
+# --------------------------------------------------------------------------- #
+def test_qdm_corrects_a_wet_bias_towards_the_observed_distribution():
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(0)
+    obs = rng.gamma(0.5, 8.0, 4000)                 # observed wet-day amounts
+    hist = rng.gamma(0.5, 8.0, 4000) * 1.4          # the model, 40 % too wet
+    out = qdm_cell(hist, hist.copy(), obs)          # future == historical
+    # With no change signal QDM reduces to plain quantile mapping, so the
+    # corrected mean must land far closer to the observation than the raw model.
+    assert abs(out.mean() - obs.mean()) < abs(hist.mean() - obs.mean()) / 2
+
+
+def test_qdm_preserves_the_models_own_change_signal():
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(1)
+    obs = rng.gamma(0.5, 8.0, 4000)
+    hist = rng.gamma(0.5, 8.0, 4000)
+    fut = hist * 1.25                                # a 25 % wetter future
+    out = qdm_cell(hist, fut, obs)
+    same = qdm_cell(hist, hist.copy(), obs)
+    # Plain quantile mapping would force both onto the observed distribution and
+    # erase the signal. QDM must carry it through.
+    assert out.mean() > same.mean() * 1.1
+
+
+def test_qdm_does_not_invent_rain_on_dry_days():
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(2)
+    obs = np.concatenate([np.zeros(3000), rng.gamma(0.5, 8.0, 1000)])
+    hist = np.concatenate([np.zeros(2000), rng.gamma(0.5, 6.0, 2000)])  # too often wet
+    fut = hist.copy()
+    out = qdm_cell(hist, fut, obs)
+    # The model rains on half its days, reality on a quarter; the corrected
+    # series must not be wetter in frequency than reality.
+    assert np.mean(out >= 0.1) <= np.mean(obs >= 0.1) * 1.15
+    assert out.min() >= 0.0
+
+
+def test_qdm_reduces_to_plain_quantile_mapping_when_nothing_changes():
+    """The regression that caught a wrong QDM: taking tau from the historical
+    distribution makes the delta identically 1, so the method degenerates to
+    plain QM and erases the change signal. With future == historical the two
+    must agree, and the result must match the observed mean, not exceed it."""
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(3)
+    obs = rng.gamma(0.5, 8.0, 6000)
+    hist = rng.gamma(0.5, 8.0, 6000) * 1.5
+    out = qdm_cell(hist, hist.copy(), obs)
+    wet = out[out >= 0.1]
+    assert abs(wet.mean() - obs[obs >= 0.1].mean()) < 0.15 * obs[obs >= 0.1].mean()
+
+
+def test_qdm_scales_the_mean_by_the_models_own_ratio():
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(4)
+    obs = rng.gamma(0.5, 8.0, 6000)
+    hist = rng.gamma(0.5, 8.0, 6000) * 1.5
+    for factor in (0.7, 1.3):
+        out = qdm_cell(hist, hist * factor, obs)
+        base = qdm_cell(hist, hist.copy(), obs)
+        got = out[out > 0].mean() / base[base > 0].mean()
+        assert abs(got - factor) < 0.2, (factor, got)
+
+
+def test_qdm_matches_the_observed_wet_frequency_and_keeps_the_models_trend():
+    """Second regression in this module. Deriving the wet threshold from the
+    historical distribution and applying it to a shifted future lets extra days
+    clear a fixed bar, manufacturing a frequency increase the model never
+    projected. The threshold must come from the future's own distribution at a
+    target rate anchored on observations and scaled by the model's own change."""
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(5)
+    obs = np.where(rng.random(6000) < 0.27, rng.gamma(0.6, 12.0, 6000), 0.0)
+    # A drizzly model: too often wet, too light, same frequency in the future.
+    hist = np.where(rng.random(6000) < 0.36, rng.gamma(0.6, 8.0, 6000), 0.0)
+    fut = hist * 1.2                      # wetter amounts, unchanged frequency
+    out = qdm_cell(hist, fut, obs)
+    f_obs = np.mean(obs >= 0.1)
+    f_out = np.mean(out >= 0.1)
+    assert abs(f_out - f_obs) < 0.04 * max(f_obs, 1e-9) + 0.02, (f_obs, f_out)
