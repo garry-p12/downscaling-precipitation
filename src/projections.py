@@ -38,17 +38,29 @@ interpolating quantiles through it produces drizzle that is not there. The
 wet-day threshold is applied first and the frequency of wet days is corrected
 separately.
 
-**Status: not yet validated for use.** The cell-level behaviour is tested --
-QDM reduces to plain quantile mapping when nothing changes, carries the
-model's own ratio otherwise, does not invent rain on dry days, and the
-wet-day threshold hits its per-cell target to within 2 % on a 192 cell-month
-sample with no fallbacks. But on the full domain the corrected wet-day
-frequency comes out 7.5 % above observed while ACCESS-CM2's own
-domain-annual frequency change is -0.8 %. The likely explanation is that
-per-cell, per-month frequency ratios average higher than the domain-annual
-figure, which is the model's signal being carried through correctly rather
-than a fault -- but that has not been demonstrated, and until it is these
-fields should not be used for anything downstream.
+**Status: NOT VALIDATED. Do not use these fields downstream.**
+
+Frequency is now right. Over the ACCESS-CM2 ssp245 domain the corrected
+wet-day frequency is 2.0 % below observed against the model's own -0.8 %
+change, after three fixes recorded in the git history: tau taken from the
+future rather than the historical distribution, the wet threshold anchored on
+observations and scaled by the model's own frequency change, and that
+threshold floored at the wet cut so the quantile cannot land inside
+precipitation's atom at zero.
+
+**Intensity is not right, and the defect is open.** The corrected wet-day mean
+comes out 22.2 % above observed. The model's own change on the days QDM
+actually operates on -- its top 27.3 % -- is +6.4 %, so the correction is
+inflating the signal roughly threefold rather than transferring it. Measured
+for reference: the model's change is +7.1 % over all its wet days, +6.4 % over
+the top 27.3 %, +7.8 % over the top 10 % and +10.1 % over the top 2 %, so the
+tail does intensify faster, but nowhere near enough to explain 22 %.
+
+The likely locus is the delta term. It is a per-value ratio multiplied by a
+quantile of the observed distribution, and the two are positively correlated,
+so the mean of the product exceeds the product of the means. The clip at 10.0
+and the asymmetry between how the historical and future wet sets are selected
+are both candidates. None of this is demonstrated.
 
     python -m src.projections --hist 'nexgddp/pr_ACCESS-CM2_historical_*.nc' \\
         --future 'nexgddp/pr_ACCESS-CM2_ssp245_*.nc' \\
@@ -117,7 +129,16 @@ def qdm_cell(hist: np.ndarray, fut: np.ndarray, obs: np.ndarray) -> np.ndarray:
     p_target = float(np.clip(p_wet_obs * ratio, 0.0, 1.0))
     if p_target <= 0:
         return out
-    thr = float(np.quantile(fv, 1.0 - p_target)) if p_target < 1 else -np.inf
+    thr = float(np.quantile(fv, 1.0 - p_target)) if p_target < 1 else WET
+    # Floor at the wet cut. Precipitation has an atom at zero, and where the
+    # model is wet on fewer days than the target the quantile lands inside that
+    # atom -- at or below 0.1 mm. `fut >= thr` then selects dry days as well,
+    # and the amount mapping turns every one of them into a wet day, because
+    # the smallest observed wet quantile is well above zero. On ACCESS-CM2 over
+    # this domain that happened in 7.4 % of cell-months and inflated the
+    # corrected wet-day frequency by 9 %. Flooring here caps the selection at
+    # the days the model itself calls wet, which is the most it can support.
+    thr = max(thr, WET)
     wet_f = fut >= thr
     if not wet_f.any():
         return out

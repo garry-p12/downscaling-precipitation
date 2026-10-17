@@ -595,3 +595,22 @@ def test_qdm_matches_the_observed_wet_frequency_and_keeps_the_models_trend():
     f_obs = np.mean(obs >= 0.1)
     f_out = np.mean(out >= 0.1)
     assert abs(f_out - f_obs) < 0.04 * max(f_obs, 1e-9) + 0.02, (f_obs, f_out)
+
+
+def test_qdm_threshold_never_selects_a_dry_model_day():
+    """Third regression here, and the one that mattered most. Where the model
+    is wet on fewer days than the target rate, the wet-day quantile lands
+    inside precipitation's atom at zero; `fut >= thr` then picks up dry days
+    and the amount mapping turns each into a wet day, since the smallest
+    observed wet quantile is well above zero."""
+    from src.projections import qdm_cell
+
+    rng = np.random.default_rng(6)
+    # Reality is wet 40 % of days; the model only 12 %, so the target rate
+    # exceeds what the model can support and the quantile falls into the atom.
+    obs = np.where(rng.random(5000) < 0.40, rng.gamma(0.7, 10.0, 5000), 0.0)
+    hist = np.where(rng.random(5000) < 0.12, rng.gamma(0.7, 9.0, 5000), 0.0)
+    out = qdm_cell(hist, hist.copy(), obs)
+    dry = hist < 0.1
+    assert np.all(out[dry] == 0.0), "a dry model day was turned wet"
+    assert np.mean(out >= 0.1) <= np.mean(hist >= 0.1) + 1e-9
