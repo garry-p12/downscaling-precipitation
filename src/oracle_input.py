@@ -72,8 +72,11 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool,
     # --source instead block-averages some *product's* 1 km field, which turns
     # this into the second stage of a two-stage experiment -- the sharpener is
     # then fed the coarse field a real model produced rather than the truth.
+    # Chunked: twenty years of 1 km over the POWER box is 16.9 GiB and will
+    # not allocate. coarsen_mean streams it when the array is dask-backed.
     aorc = (_open_source(source) if source
-            else xr.open_dataset(src / "aorc_aligned_1km.nc")["precip"])
+            else xr.open_dataset(src / "aorc_aligned_1km.nc",
+                                 chunks={"time": 180})["precip"])
     ny, nx = aorc.sizes["lat"], aorc.sizes["lon"]
     if ny % grids.factor or nx % grids.factor:
         raise SystemExit(
@@ -107,7 +110,14 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool,
     # Linking them produced "all input arrays must have the same shape" only
     # once training started, well after the oracle itself looked fine.
     regrid = grids.factor != base_factor
-    step = grids.factor // base_factor if regrid else 1
+    # A LARGER factor means a coarser input grid, so the existing coarse-grid
+    # files are block-averaged down. A SMALLER one -- factor 30 against a base
+    # of 60, which is the 0.25 deg grid the projections arm needs -- makes the
+    # coarse grid finer, and they have to be interpolated up instead. The
+    # original code only knew how to coarsen and computed 60 // 30 the wrong way
+    # round, giving step 0 and an integer modulo by zero.
+    coarsening = grids.factor > base_factor
+    step = (grids.factor // base_factor) if coarsening else 1
 
     for name in PASSTHROUGH:
         s = src / name
@@ -118,14 +128,25 @@ def build(cfg: dict, out: Path, factor: int | None, link: bool,
         if d.exists() or d.is_symlink():
             d.unlink()
         if regrid and "10km" in name:
-            ds = xr.open_dataset(s)
+            ds = xr.open_dataset(s, chunks={"time": 365} if "time" in
+                                 xr.open_dataset(s).dims else None)
             ny, nx = ds.sizes["lat"], ds.sizes["lon"]
-            if ny % step or nx % step:
-                raise SystemExit(f"{name}: {ny}x{nx} not divisible by {step}")
-            ds = ds.coarsen(lat=step, lon=step, boundary="exact").mean()
+            if coarsening:
+                if ny % step or nx % step:
+                    raise SystemExit(f"{name}: {ny}x{nx} not divisible by {step}")
+                ds = ds.coarsen(lat=step, lon=step, boundary="exact").mean()
+            else:
+                # Interpolating up adds no information and is not meant to: it
+                # puts these predictors on the grid the loader expects so the
+                # channel count matches the rest of the study. The information
+                # content is still that of the original coarse field.
+                ds = ds.interp(lat=grids.coarse.lat, lon=grids.coarse.lon,
+                               method="linear", kwargs={"fill_value": None})
             ds = ds.assign_coords(lat=grids.coarse.lat, lon=grids.coarse.lon)
             ds.to_netcdf(d)
-            print(f"  regridded {name} {ny}x{nx} -> {ny // step}x{nx // step}", flush=True)
+            print(f"  regridded {name} {ny}x{nx} -> "
+                  f"{ds.sizes['lat']}x{ds.sizes['lon']}"
+                  f" ({'down' if coarsening else 'up'})", flush=True)
             continue
         if link:
             d.symlink_to(s.resolve())
