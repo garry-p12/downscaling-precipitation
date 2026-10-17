@@ -49,7 +49,8 @@ PRODUCT_STYLE = {
     "diffusion":        ("Diffusion, mean",   VERM,   "P"),
     "diffusion_member": ("Diffusion, member", PURPLE, "X"),
     "cnn_spectral":     ("CNN + spectral",    SKY,    "*"),
-    "cnn_e":            ("E (shipped)",       BLACK,  "*"),
+    "cnn_e":            ("E",                 GREY,   "*"),
+    "cnn_m1":           ("M1 (shipped)",      BLACK,  "*"),
 }
 
 
@@ -165,6 +166,7 @@ def f3_accuracy_realism():
     pwr = load("results/power/comparison/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
     struct = load("results/austin_struct/scores.json")
+    m1 = load("results/specM1/scores.json")
     ctl = load("results/spectral/comparison-spec-ctl/model_comparison.json")
     pspc = load("results/power/comparison-spec-w0.01/model_comparison.json")
     pctl = load("results/power/comparison-spec-w0.0/model_comparison.json")
@@ -176,7 +178,8 @@ def f3_accuracy_realism():
     # overlaps them or drags leader lines across the panel.
     OFF = {
         ("a", "cnn_spectral"):     (7, 0, "left", "center"),
-        ("a", "cnn_e"):            (0, -9, "center", "top"),
+        ("a", "cnn_e"):            (7, 4, "left", "bottom"),
+        ("a", "cnn_m1"):           (0, -9, "center", "top"),
         ("a", "cnn_control"):      (7, 6, "left", "bottom"),
         ("a", "cnn"):              (7, -4, "left", "top"),
         ("a", "swin"):             (-7, -4, "right", "top"),
@@ -201,6 +204,9 @@ def f3_accuracy_realism():
             spc["products"]["cnn"]["spectral_ratio_sub10km"])] if spc else [])
          + ([("cnn_e", struct["E_s1"]["rmse"],
               struct["E_s1"]["spectral_ratio_sub10km"])] if struct and "E_s1" in struct
+            else [])
+         + ([("cnn_m1", m1["specM1_s2"]["rmse"],
+              m1["specM1_s2"]["spectral_ratio_sub10km"])] if m1 and "specM1_s2" in m1
             else [])),
         (axes[1], pwr, "NASA POWER \u2014 50 km input", "b",
          [("cnn_spectral", pspc["products"]["cnn"]["overall"]["rmse"],
@@ -247,6 +253,7 @@ def f4_spectra():
     pwr = load("results/power/comparison/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
     struct = load("results/austin_struct/scores.json")
+    m1 = load("results/specM1/scores.json")
     if not (aus and pwr):
         print("  F4 skipped")
         return
@@ -419,6 +426,7 @@ def f7_fss():
     ctl = load("results/spectral/comparison-spec-ctl/model_comparison.json")
     spc = load("results/spectral/comparison-spec-w001/model_comparison.json")
     struct = load("results/austin_struct/scores.json")
+    m1 = load("results/specM1/scores.json")
     if not (ctl and spc):
         print("  F7 skipped")
         return
@@ -541,3 +549,143 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ================================================== F9: band energy, two domains
+# The sub-10 km spectral ratio is a mean of per-wavenumber ratios and the radial
+# bins crowd into short wavelengths, so it is carried by the 2-4 km end. These
+# panels show where the variance actually is, which is what the ladder moved and
+# what the scalar hides.
+LADDER_AUSTIN = [
+    ("E",   "results/austin_struct/scores_bands.json", ("E_s0", "E_s1", "E_s2")),
+    ("P2",  "results/specP2/scores.json",  ("specP2_s0", "specP2_s1", "specP2_s2")),
+    ("P4o", "results/specP4o/scores.json", ("specP4o_s0", "specP4o_s1", "specP4o_s2")),
+    ("M1",  "results/specM1/scores.json",  ("specM1_s0", "specM1_s1", "specM1_s2")),
+    ("W3",  "results/specW3/scores.json",  ("specW3_s0", "specW3_s1", "specW3_s2")),
+    ("W10", "results/specW10/scores.json", ("specW10_s0", "specW10_s1", "specW10_s2")),
+]
+LADDER_CO = [
+    ("E",   "results/co-ladder/scores.json", ("E_s0", "co_E_s1", "co_E_s2")),
+    ("M1",  "results/co-ladder/scores.json", ("coM1_s0", "coM1_s1", "coM1_s2")),
+    ("W10", "results/co-ladder/scores.json", ("coW10_s0", "coW10_s1", "coW10_s2")),
+]
+BANDS_KM = ("2-4km", "4-8km", "8-16km", "16-32km", "32-64km")
+BAND_X = (3, 6, 12, 24, 48)          # geometric centre of each octave
+# Austin bilinear, measured: the line every arm has to clear at the mesoscale.
+BILINEAR_AUSTIN = (0.111, 0.077, 0.040, 0.154, 0.211)
+
+
+def _band_means(path, keys):
+    """Mean band energy over seeds; None if the file or any key is missing."""
+    d = load(path)
+    if not d:
+        return None
+    rows = [d[k]["spectral_energy_bands"] for k in keys
+            if k in d and "spectral_energy_bands" in d[k]]
+    if not rows:
+        return None
+    return [sum(r[b] for r in rows) / len(rows) for b in BANDS_KM]
+
+
+def f9_band_energy():
+    """Retained variance by scale: what the ladder moved, and where it did not."""
+    series = {}
+    for name, dom in (("austin", LADDER_AUSTIN), ("colorado", LADDER_CO)):
+        series[name] = [(lab, _band_means(p, k)) for lab, p, k in dom]
+        series[name] = [(l, v) for l, v in series[name] if v]
+    if not series["austin"]:
+        print("  F9 skipped: ladder score files missing")
+        return
+
+    COL = {"E": GREY, "P2": SKY, "P4o": GREEN, "M1": BLACK, "W3": ORANGE, "W10": VERM}
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 3.0))
+    for ax, (dom, rows), title in (
+        (axes[0], ("austin", series["austin"]), "Austin — IMERG, 10 km input"),
+        (axes[1], ("colorado", series["colorado"]), "Colorado Front Range"),
+    ):
+        ax.axhline(1.0, color=GREY_L, lw=0.7, ls=(0, (4, 3)), zorder=1)
+        if dom == "austin":
+            ax.plot(BAND_X, BILINEAR_AUSTIN, "s--", color=PURPLE, ms=3.5, lw=1.0,
+                    mfc="white", mew=0.8, zorder=3, label="bilinear")
+        for lab, v in rows:
+            ax.plot(BAND_X, v, "o-", color=COL.get(lab, GREY), ms=3.2, lw=1.2,
+                    mec="white", mew=0.4, zorder=4, label=lab)
+        ax.set_xscale("log"); ax.set_yscale("log")
+        # A log axis draws its own decade labels, which overprint the band names.
+        from matplotlib.ticker import NullFormatter, NullLocator
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.set_xticks(BAND_X)
+        ax.set_xticklabels([b.replace("km", "") for b in BANDS_KM], fontsize=6.4)
+        ax.set_ylim(5e-3, 6)
+        ax.set_xlabel("wavelength band (km)")
+        ax.set_title(title, fontsize=7.5, pad=5)
+        ax_style(ax, grid_axis=None)
+        ax.legend(fontsize=5.8, frameon=False, ncol=2, loc="lower left",
+                  handlelength=1.4, columnspacing=0.9, borderpad=0.2)
+        ax.text(0.985, 1.0, "correct", transform=ax.get_yaxis_transform(),
+                fontsize=6.2, color=GREY, ha="right", va="bottom")
+    axes[0].set_ylabel("retained variance\n(predicted / observed)")
+    for a, L in zip(axes, "ab"):
+        panel(a, L, dx=-0.15)
+    save(fig, "F9_band_energy",
+         "retained variance by wavelength band; note both axes log and the 1.0 line")
+
+
+# ============================================ F10: the texture/accuracy exchange
+def f10_exchange():
+    """What a unit of mesoscale costs in RMSE -- and that the rate is not general."""
+    AU = [("w=0.01\n(M1)", "results/specM1/scores.json",  ("specM1_s0", "specM1_s1", "specM1_s2")),
+          ("w=0.03", "results/specW3/scores.json",  ("specW3_s0", "specW3_s1", "specW3_s2")),
+          ("w=0.10", "results/specW10/scores.json", ("specW10_s0", "specW10_s1", "specW10_s2"))]
+    CO = [("w=0.01\n(M1)", "results/co-ladder/scores.json", ("coM1_s0", "coM1_s1", "coM1_s2")),
+          ("w=0.10", "results/co-ladder/scores.json", ("coW10_s0", "coW10_s1", "coW10_s2"))]
+
+    def pts(rows):
+        out = []
+        for lab, path, keys in rows:
+            d = load(path)
+            if not d:
+                continue
+            ks = [k for k in keys if k in d]
+            if not ks:
+                continue
+            out.append((lab,
+                        sum(d[k]["rmse"] for k in ks) / len(ks),
+                        sum(d[k]["spectral_energy_bands"]["16-32km"] for k in ks) / len(ks),
+                        sum(d[k]["spectral_energy_sub10km"] for k in ks) / len(ks)))
+        return out
+
+    a, c = pts(AU), pts(CO)
+    if not a:
+        print("  F10 skipped: sweep score files missing")
+        return
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 2.9))
+    for ax, data, title, ref in (
+        (axes[0], a, "Austin — the mesoscale is bought with RMSE", 0.154),
+        (axes[1], c, "Colorado — bought from a field already past correct", None),
+    ):
+        if not data:
+            ax.set_visible(False)
+            continue
+        xs = [p[1] for p in data]; ys = [p[2] for p in data]
+        ax.plot(xs, ys, "-", color=GREY_L, lw=1.0, zorder=2)
+        for (lab, x, y, tot), col in zip(data, (BLACK, ORANGE, VERM)):
+            ax.plot(x, y, "o", color=col, ms=6, mec="white", mew=0.6, zorder=4)
+            # The sub-10 km total decides whether more variance is wanted at all:
+            # above 1.0 the field already carries more than reality has.
+            ax.annotate(f"{lab}\n<10 km: {tot:.2f}", (x, y), textcoords="offset points",
+                        xytext=(8, -2), fontsize=5.8, color=col, ha="left", va="center")
+        if ref:
+            ax.axhline(ref, color=PURPLE, lw=0.8, ls=(0, (4, 3)), zorder=1)
+            ax.text(0.985, ref, "bilinear", transform=ax.get_yaxis_transform(),
+                    fontsize=6.2, color=PURPLE, ha="right", va="bottom")
+        ax.set_xlabel("RMSE (mm day$^{-1}$)")
+        ax.set_title(title, fontsize=7.5, pad=5)
+        ax.margins(x=0.22, y=0.25)
+        ax_style(ax, grid_axis=None)
+    axes[0].set_ylabel("retained variance,\n16–32 km")
+    for ax, L in zip(axes, "ab"):
+        panel(ax, L, dx=-0.15)
+    save(fig, "F10_exchange_rate",
+         "mesoscale variance against RMSE as the spectral weight rises, by domain")
