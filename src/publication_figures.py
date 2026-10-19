@@ -854,3 +854,109 @@ def f12_variance_lost():
     panel(fig.axes[1], "b", dx=-0.20)
     save(fig, "F12_variance_lost",
          "share of variance lost at 1 km, by delivered spacing and wavelength band")
+
+
+# ================== F13: the two levers, and where 5.1's conclusion stops
+# 5.1 measured capacity and architecture at 1 km and found 0.05 %. That result
+# justified not spending on architecture for the rest of the study. It was
+# never run at the 10 km stage, which 4.10 says carries 91-92 % of the error.
+ARCH = {                      # dev RMSE, same three architectures, two stages
+    "CNN\nbase 24": (5.1365, 4.6029),
+    "CNN\nbase 64": (5.1382, 4.5128),
+    "Swin": (5.1389, 4.6314),
+}
+# Test RMSE at 10 km for the two levers on the identical task.
+LEVERS = [("IMERG only\nbase 24", 4.415), ("IMERG only\nbase 64", 4.380),
+          ("IMERG + POWER\nbase 64", 4.323)]
+
+
+def f13_two_levers():
+    """Architecture matters where the error is; information matters more."""
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 3.0))
+
+    ax = axes[0]
+    names = list(ARCH)
+    x = np.arange(len(names))
+    for i, (stage, j, col) in enumerate((("at 1 km", 0, GREY), ("at 10 km", 1, BLUE))):
+        v = [ARCH[n][j] - min(a[j] for a in ARCH.values()) for n in names]
+        ax.bar(x + (i - 0.5) * 0.36, v, 0.34, color=col, label=stage,
+               edgecolor="white", linewidth=0.6, zorder=3)
+    ax.set_xticks(x); ax.set_xticklabels(names, fontsize=6.4)
+    ax.set_ylabel("dev RMSE above the best\nof the three (mm day$^{-1}$)")
+    ax.set_title("Same three models, two stages", fontsize=7.5, pad=5)
+    ax.legend(fontsize=6.2, frameon=False, loc="upper left")
+    ax_style(ax)
+    ax.annotate("spread 0.0024", xy=(0.52, 0.030), fontsize=5.8, color=GREY,
+                ha="center",
+                arrowprops=dict(arrowstyle="-", lw=0.6, color=GREY_L),
+                xytext=(0.52, 0.030))
+    ax.annotate("spread 0.119\n(49× larger)", xy=(1.5, 0.075), fontsize=5.8,
+                color=BLUE, ha="center")
+
+    ax = axes[1]
+    lab = [l for l, _ in LEVERS]
+    val = [v for _, v in LEVERS]
+    col = [GREY_L, BLUE, VERM]
+    ax.barh(np.arange(len(val))[::-1], val, 0.55, color=col, edgecolor="white",
+            linewidth=0.6, zorder=3)
+    ax.set_yticks(np.arange(len(val))[::-1]); ax.set_yticklabels(lab, fontsize=6.2)
+    ax.set_xlim(4.20, 4.46)
+    ax.set_xlabel("RMSE at 10 km (mm day$^{-1}$)")
+    ax.set_title("Two ways to spend, same task", fontsize=7.5, pad=5)
+    for i, v in enumerate(val):
+        ax.text(v - 0.004, len(val) - 1 - i, f"{v:.3f}", va="center", ha="right",
+                fontsize=6.2, color="white", fontweight="bold")
+    ax.annotate("architecture\n−0.035", xy=(4.215, 1.5), fontsize=5.8, color=BLUE,
+                ha="left", va="center")
+    ax.annotate("information\n−0.057", xy=(4.215, 0.5), fontsize=5.8, color=VERM,
+                ha="left", va="center")
+    ax.axvline(4.251, color=BLACK, lw=0.8, ls=(0, (3, 2)), zorder=4)
+    ax.text(4.253, 2.45, "end-to-end reaches 4.251", fontsize=5.8, color=BLACK,
+            ha="left", va="center")
+    ax_style(ax, grid_axis="x")
+    for a, L in zip(axes, "ab"):
+        panel(a, L, dx=-0.16)
+    save(fig, "F13_two_levers",
+         "architecture and information at the stage that carries the error")
+
+
+# ============================= F14: what downscaling is worth at each target
+MULTIRES = [("0.25°", 5.875, 4.927, 0.318, 0.388),
+            ("0.10°", 6.171, 5.389, 0.304, 0.417),
+            ("0.05°", 6.261, 5.456, 0.300, 0.465),
+            ("1 km", 6.302, 5.824, 0.298, 0.340)]
+
+
+def f14_multires():
+    """The benefit of downscaling halves as the target gets finer."""
+    lab = [r[0] for r in MULTIRES]
+    x = np.arange(len(lab))
+    gain = [(r[1] - r[2]) / r[1] * 100 for r in MULTIRES]
+    dpod = [r[4] - r[3] for r in MULTIRES]
+
+    fig, axes = plt.subplots(1, 2, figsize=(W2, 2.9))
+    ax = axes[0]
+    ax.bar(x, gain, 0.55, color=BLUE, edgecolor="white", linewidth=0.6, zorder=3)
+    for i, g in enumerate(gain):
+        ax.text(i, g + 0.3, f"{g:.1f}%", ha="center", fontsize=6.2, color=BLUE)
+    ax.set_xticks(x); ax.set_xticklabels(lab, fontsize=6.6)
+    ax.set_ylim(0, 19)
+    ax.set_xlabel("grid the model is trained to predict")
+    ax.set_ylabel("RMSE gain over bilinear (%)")
+    ax.set_title("Downscaling is worth less at finer targets", fontsize=7.5, pad=5)
+    ax_style(ax)
+
+    ax = axes[1]
+    ax.bar(x, dpod, 0.55, color=GREEN, edgecolor="white", linewidth=0.6, zorder=3)
+    for i, d in enumerate(dpod):
+        ax.text(i, d + 0.004, f"+{d:.3f}", ha="center", fontsize=6.2, color=GREEN)
+    ax.set_xticks(x); ax.set_xticklabels(lab, fontsize=6.6)
+    ax.set_ylim(0, 0.20)
+    ax.set_xlabel("grid the model is trained to predict")
+    ax.set_ylabel("POD gain over bilinear")
+    ax.set_title("Heavy-rain detection peaks at 5 km", fontsize=7.5, pad=5)
+    ax_style(ax)
+    for a, L in zip(axes, "ab"):
+        panel(a, L, dx=-0.17)
+    save(fig, "F14_multires_gain",
+         "what a trained model adds over interpolation at each target grid")
